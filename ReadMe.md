@@ -1253,6 +1253,6 @@ app.Run();
 ```
 
 ## Recap what we did till now
-<code>I created the example application that I will use throughout this part of the book. The
+<code>I created the example application. The
 application is simple but defines three levels of access control, which I use to explain how ASP.NET Core
 Identity works and how it integrates into the ASP.NET Core platform. </code>
