@@ -1256,3 +1256,550 @@ app.Run();
 <code>I created the example application. The
 application is simple but defines three levels of access control, which I use to explain how ASP.NET Core
 Identity works and how it integrates into the ASP.NET Core platform. </code>
+
+# Using the Identity UI Package
+> Microsoft provides a build user interface for Identity, known as Identity UI, which makes it possible to get up
+and running quickly.
+
+| Question    | Answer | 
+| :---        | :---   |
+| What is it? | The Identity UI package is a set of Razor Pages and supporting classes provided by Microsoft to jump-start the use of ASP.NET Core Identity in ASP.NET Core projects. |
+| Why is it useful? | The Identity UI package provides all the workflows required for basic user management, including creating accounts and signing in with passwords, authenticators, and third-party services. |
+| How is it used? | The Identity UI package is added to projects as a NuGet package and enabled with the <code>AddDefaultIdentity</code> extension method. |
+| Are there any pitfalls or limitations? | The approach that Identity UI takes doesn’t suit all projects. This can be remedied either by adapting the features it provides or by working directly with the Identity API to create custom alternatives. |
+| Are there any alternatives? | Identity provides an API that can be used to create custom alternatives to the Identity UI package. |
+
+| Problem    | Solution | 
+| :---       | :---     |
+| Add Identity and the Identity UI package to a project | Add the NuGet packages to the project and configure them using the <code>AddDefaultIdentity</code> method in the Startup class. Create a database migration and use it to prepare a database for storing user data. |
+| Present the user with the registration or sign-in links | Create a shared partial view named <code>_LoginPartial.cshtml</code>. |
+| Create a consistent layout for the application and the Identity UI package | Define a Razor Layout and refer to it in a Razor View Start created in the <code>Areas/Identity/Pages</code> folder. |
+| Add support for confirmations | Create an implementation of the <code>IEmailSender</code> interface and register it as a service in the <code>Program</code> class. |
+| Display QR codes for configuring authenticator applications | Add the qrcodejs JavaScript package to the project and create a script element that applies it to the URL produced by the Identity UI package. |
+
+## Adding ASP.NET Core Identity to the Project
+> Adding the ASP.NET Core Identity Packages
+```cli
+dotnet add package Microsoft.Extensions.Identity.Core
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+```
+> The first package contains the core Identity features. 
+
+> The second package contains the features required to store data in a database using Entity Framework Core.
+
+## Adding the Identity UI Package to the Project
+```cli
+dotnet add package Microsoft.AspNetCore.Identity.UI
+```
+
+## Defining the Database Connection String
+> The easiest way to store Identity data is in a database, and Microsoft provides built-in support for doing this with Entity Framework Core. Although you can use a single database for the application’s domain data and the Identity data, 
+
+> I recommend you keep everything separate so that you can manage the schemas independently. <code>According to Adam Freeman</code>
+
+> Adding a Connection String in the <code>appsettings.json</code> File in the <code>IdentityApp</code> Folder.
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "AppDataConnection": "Server=(localdb)\\MSSQLLocalDB;Database=IdentityAppData;MultipleActiveResultSets=true",
+    "IdentityConnection": "Server=(localdb)\\MSSQLLocalDB;Database=IdentityAppUserData;MultipleActiveResultSets=true"
+  }
+}
+```
+
+## Configuring the Application
+> Configuring the Application in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+using IdentityApp.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
+builder.Services.AddDbContext<ProductDbContext>(opts =>
+{
+    opts.UseSqlServer(
+    builder.Configuration["ConnectionStrings:AppDataConnection"]);
+});
+
+builder.Services.AddHttpsRedirection(opts =>
+{
+    opts.HttpsPort = 44350;
+});
+
+builder.Services.AddDbContext<IdentityDbContext>(opts => {
+    opts.UseSqlServer(
+    builder.Configuration["ConnectionStrings:IdentityConnection"],
+    opts => opts.MigrationsAssembly("IdentityApp")
+    );
+});
+
+builder.Services.AddDefaultIdentity<IdentityUser>()
+.AddEntityFrameworkStores<IdentityDbContext>();
+
+var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapDefaultControllerRoute();
+    endpoints.MapRazorPages();
+});
+
+app.Run();
+```
+
+> The AddDbContext method is used to set up an Entity Framework Core database context for Identity.
+
+> The database context class is <code>IdentityDbContext</code>, which is included in the Identity packages and includes details of the schema that will be used to store identity data.
+
+> Because the <code>IdentityDbContext</code> class is defined in a different assembly, I have to tell Entity Framework Core to create database migrations in the IdentityApp project, like this:
+```C#
+services.AddDbContext<IdentityDbContext>(opts => {
+opts.UseSqlServer(
+Configuration["ConnectionStrings:IdentityConnection"],
+opts => opts.MigrationsAssembly("IdentityApp")
+);
+});
+```
+
+> Setup up ASP.NET Core Identity.
+```C#
+services.AddDefaultIdentity<IdentityUser>()
+    .AddEntityFrameworkStores<IdentityDbContext>();
+```
+
+> The reason that ASP.NET Core threw exceptions for requests to restricted URLs was that no services had been registered to authentication requests.
+
+> The <code>AddDefaultIdentity</code> method sets up those services using sensible default values.
+
+> The generic type argument specifies the class Identity will use to represent users.
+
+> The default class is <code>IdentityUser</code>, which is included in the Identity package.
+
+> The <code>AddEntityFrameworkStores</code> method sets up data storage using Entity Framework Core, and the generic type argument specifies the database context that will be used.
+
+> Identity uses two kinds of datastore: the <code>user store</code> and the <code>role store</code>.
+
+> The <code>user store</code> is the heart of Identity and is used to store all of the user data, including email addresses, passwords, and so on. Confusingly, membership of roles is kept in the user store.
+
+> The <code>role store</code> contains additional information about roles that are used only in complex applications.
+
+## Creating the Database
+> Entity Framework Core requires a database migration, which will be used to create the database for Identity data.
+```cli
+dotnet ef migrations add IdentityInitial --context IdentityDbContext
+dotnet ef database drop --force --context IdentityDbContext
+dotnet ef database update --context IdentityDbContext
+```
+
+## Preparing the Login Partial View
+> The Identity UI package requires a partial view named <code>_LoginPartial</code>, which is displayed at the top of every page. 
+
+> Add a Razor View named <code>_LoginPartial.cshtml</code> to the <code>Views/Shared</code> folder.
+```Razor
+<div>Placeholder Content</div>
+```
+
+# Testing the Application with Identity
+> run the application then click <code>level 2</code> button.
+
+> the result will be like below
+
+![Result!](/Images/1.png "Result")
+
+# Completing the Application Setup
+> The basic configuration is complete, but several features require additional work before they function correctly.
+
+## Displaying Login Information
+> Replacing the Contents of the <code>_LoginPartial.cshtml</code> File in the <code>Pages/Shared</code> Folder.
+```Razor
+<nav class="nav">
+    @if (User.Identity.IsAuthenticated)
+    {
+        <a asp-area="Identity" asp-page="/Account/Manage/Index"
+       class="nav-link bg-secondary text-white">
+            @User.Identity.Name
+        </a>
+        <a asp-area="Identity" asp-page="/Account/Logout"
+       class="nav-link bg-secondary text-white">
+            Logout
+        </a>
+    }
+    else
+    {
+        <a asp-area="Identity" asp-page="/Account/Login"
+       class="nav-link bg-secondary text-white">
+            Login/Register
+        </a>
+    }
+</nav>
+```
+
+## Creating a Consistent Layout
+> The Identity UI package is a collection of Razor Pages set up in a separate ASP.NET Core area. This means a project can override individual files from the Identity UI package by creating Razor Pages with the same names. 
+
+> Add a Razor Layout named <code>_CustomIdentityLayout.cshtml</code> to the <code>Pages/Shared</code> folder.
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link rel="stylesheet" href="/Identity/lib/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/Identity/css/site.css" />
+    <script src="/Identity/lib/jquery/dist/jquery.js"></script>
+    <script src="/Identity/lib/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script src="/Identity/js/site.js" asp-append-version="true"></script>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-secondary">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <div class="m-2">
+        @RenderBody()
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+</body>
+</html>
+```
+
+> To use the new view, create the <code>Areas/Identity/Pages</code> folder and add to it a Razor View Start file named <code>_ViewStart.cshtml</code>.
+```Razor
+@{
+    Layout = "_CustomIdentityLayout";
+}
+```
+
+> Adding a Header in the <code>_Layout.cshtml</code> File in the <code>Views/Shared</code> Folder.
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link href="/lib/twitter-bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-secondary">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <partial name="_NavigationPartial" />
+    @RenderBody()
+</body>
+</html>
+```
+
+## Configuring Confirmations
+> A confirmation is an email message that asks the user to click a link to confirm an action, such as creating an account or changing a password.
+
+> The Identity support for confirmations but the Identity UI package provides a simplified confirmation process that requires an implementation of the <code>IEmailSender</code> interface, which is defined in the <code>Microsoft.AspNetCore.Identity.UI.Services</code> namespace.
+
+> The <code>IEmailSender</code> interface defines one method.
+
+| Name | Description |
+| :--- | :---        |
+| SendEmailAsync(emailAddress, subject,htmlMessage) | This method sends an email using the specified address,subject, and HTML message body. |
+
+> The Identity UI package includes an implementation of the interface whose <code>SendEmailAsync</code> method does nothing.
+
+> We will create a dummy email service till now.
+
+> Create the <code>IdentityApp/Services</code> folder and add to it a class file named <code>ConsoleEmailSender.cs</code>.
+```C#
+using Microsoft.AspNetCore.Identity.UI.Services;
+using System.Web;
+
+namespace IdentityApp.Services;
+
+public class ConsoleEmailSender : IEmailSender
+{
+    public Task SendEmailAsync(string emailAddress, string subject, string htmlMessage)
+    {
+        System.Console.WriteLine("---New Email----");
+        System.Console.WriteLine($"To: {emailAddress}");
+        System.Console.WriteLine($"Subject: {subject}");
+        System.Console.WriteLine(HttpUtility.HtmlDecode(htmlMessage));
+        System.Console.WriteLine("-------");
+        return Task.CompletedTask;
+    }
+}
+```
+
+> Register <code>Email Sender Service</code> in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+using IdentityApp.Models;
+using IdentityApp.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
+builder.Services.AddDbContext<ProductDbContext>(opts =>
+{
+    opts.UseSqlServer(
+    builder.Configuration["ConnectionStrings:AppDataConnection"]);
+});
+
+builder.Services.AddHttpsRedirection(opts =>
+{
+    opts.HttpsPort = 44350;
+});
+
+builder.Services.AddDbContext<IdentityDbContext>(opts =>
+{
+    opts.UseSqlServer(
+    builder.Configuration["ConnectionStrings:IdentityConnection"],
+    opts => opts.MigrationsAssembly("IdentityApp")
+    );
+});
+
+builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
+
+builder.Services.AddDefaultIdentity<IdentityUser>()
+.AddEntityFrameworkStores<IdentityDbContext>();
+
+var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapDefaultControllerRoute();
+    endpoints.MapRazorPages();
+});
+
+app.Run();
+```
+
+<mark>Notice that I have registered the email service before the call to the AddDefaultIdentity method so that my custom service takes precedence over the placeholder implementation in the Identity UI package.</mark>
+
+## Displaying QR Codes
+> Identity provides support for two-factor authentication, where the user has to present additional credentials to sign into the application.
+
+> The Identity UI package supports a specific type of additional credential, which is a code generated by an authenticator application.
+
+> An authenticator application is set up once and then generates authentication codes that can be validated by the application.
+
+> To complete the setup for authenticators with Identity UI, a third-party JavaScript library named <code>qrcodejs</code> is required to generate QR codes that can be scanned by mobile devices to simplify the initial setup process.
+
+> Adding a JavaScript Package.
+```cli
+libman install qrcodejs -d wwwroot/lib/qrcode
+```
+
+> Add the script elements to the <code>_CustomIdentityLayout.cshtml</code> file in the <code>Pages/Shared</code> folder.
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link rel="stylesheet" href="/Identity/lib/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/Identity/css/site.css" />
+    <script src="/Identity/lib/jquery/dist/jquery.js"></script>
+    <script src="/Identity/lib/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script src="/Identity/js/site.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="/lib/qrcode/qrcode.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-secondary">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <div class="m-2">
+        @RenderBody()
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+
+    <script type="text/javascript">
+        var element = document.getElementById("qrCode");
+        if (element !== null) {
+            new QRCode(element, {
+                text: document.getElementById("qrCodeData").getAttribute("data-url"),
+                width: 150, height: 150
+            });
+            element.previousElementSibling?.remove();
+        }
+    </script>
+
+</body>
+</html>
+```
+
+# Using the Identity UI Workflows (processes)
+> The basic configuration of the Identity UI package is complete.
+
+> Each workflow combines multiple features to support a task, such as creating a new user account or changing a password.
+
+## Registration
+> The Identity UI package supports self-registration, which means that anyone can create a new account and then use it to sign into the application.
+
+> There is one additional feature enabled by the configuration changes in the previous section, which is that a confirmation email is sent when a new account is created.
+
+> Identity can be configured to require the user to click the confirmation link before signing into the application.
+
+> The Identity UI Pages for Registration.
+
+| Page | Description |
+| :--- | :---        |
+| Account/Register | This page prompts the user to create a new account. |
+| Account/RegisterConfirmation | This is the page that handles the URLs sent in confirmation emails. |
+| Account/ResendEmailConfirmation  | This page allows the user to request another confirmation email. |
+| Account/ConfirmEmail | This is the page that handles the URLs sent in the emails when the user requests a confirmation be reset. |
+
+## Signing In and Out of the Application
+> One of the most important features provided by the Identity UI package is to sign users in and out of the application.
+
+> The Identity UI Pages for Signing In and Signing Out.
+
+| Page | Description |
+| :--- | :---        |
+| Account/Login | This page asks the user for their credentials or, if configured, to choose an external authentication service. |
+| Account/ExternalLogin | This page is displayed after the user has signed into the application using an external authentication service. |
+| Account/SetPassword | This page is used when an account has been created with an external authentication provider but the user wants to be able to sign in with a local password. |
+| Account/Logout | This page allows the user to sign out of the application. |
+| Account/Lockout | This page is displayed when the account is locked out following a series of failed sign-ins. |
+
+## Using Two-Factor Authentication
+> Identity supports a range of two-factor authentication options, one of which— authenticators—is available through the Identity UI package.
+
+> To explore this workflow, you will need an authenticator application.
+
+![Setting up two-factor authentication!](/Images/2.png "Setting up two-factor authentication")
+
+> Once you have set up an authenticator, you will be redirected to the TwoFactorAuthentication page, which presents buttons for different management tasks.
+
+> The Reset Recovery Codes button is used to generate single-use codes that can be used to sign in if the authenticator app is unavailable (such as when a mobile device has been lost or stolen).
+
+> Click the button, and you will be presented with a set of recovery codes.
+
+> It is not obvious, but each line shows two recovery codes, separated by a space.
+
+> Each code can be used only once, after which it is invalidated.
+
+![Generating recovery codes!](/Images/3.png "Generating recovery codes")
+
+> The Identity UI Pages for Managing an Authenticator.
+
+| Page | Description |
+| :--- | :--- |
+| Account/Manage/TwoFactorAuthentication | This is the page displayed when the user clicks the TwoFactor Authentication link in the self-management feature. It links to other pages that handle individual authenticator tasks. |
+| Account/Manage/EnableAuthenticator | This page displays the QR code and setup key required to configure an authenticator. |
+| Account/Manage/ResetAuthenticator | This page allows the user to generate a new authenticator setup code, which will invalidate the existing authenticator and allow a new one to be set up, which is done by the EnableAuthenticator page. |
+| Account/Manage/GenerateRecoveryCodes  | This page generates a new set of recovery codes and then redirects to the ShowRecoveryCodes page to display them. |
+| Account/Manage/ShowRecoveryCodes | This page generates a new set of recovery codes and then redirects to the ShowRecoveryCodes page to display them. |
+| Account/Manage/Disable2fa | This page allows the user to disable the authenticator and return to signing into the application with just a password. |
+
+> Sign into the application Once the password has been checked, you will be prompted to enter the current code displayed by the authenticator app. Enter the code and click the Log In button.
+
+![Signing in using an authenticator code!](/Images/4.png "Signing in using an authenticator code")
+
+> Click the Log In with a Recovery Code link instead of entering the authenticator code. You will be prompted to enter one of the recovery codes you generated earlier,
+
+![Signing in with a recovery code!](/Images/5.png "Signing in with a recovery code")
+
+> The Identity UI Pages for Two-Factor Authentication
+
+| Name | Description |
+| :--- | :--- |
+| Account/LoginWith2fa | This page prompts the user to enter an authenticator code. |
+| Account/LoginWithRecoveryCode | This page prompts the user to enter a recovery code |
+
+## Recovering a Password
+> If a user has forgotten their password, they can go through a recovery process to generate a new one.
+
+> Password recovery works only if a user confirmed their email address following registration—the Identity UI package won’t send the recovery password email if a user hasn’t confirmed their email address.
+
+> When reset the password , the password stored in the Identity user store will be updated, and you can sign into the application using the new password.
+
+![Requesting password recovery!](/Images/6.png "Requesting password recovery")
+
+![Choosing a new password!](/Images/7.png "Choosing a new password")
+
+> The Identity UI Pages for Password Recovery
+
+| Name | Description |
+| :--- | :--- |
+| Account/ForgotPassword | This page prompts the user for their email address and sends the confirmation email. |
+| Account/ForgotPasswordConfirmation | This page is displayed once the confirmation email has been sent. |
+| Account/ResetPassword | This page is targeted by the URL sent in the confirmation email. It prompts the user for their email address and a new password. |
+| Account/ResetPasswordConfirmation | This page is displayed once the password has been changed and provides the user with confirmation that the process has been completed. |
+
+## Changing Account Details
+> The self-management features include support for changing the user’s details, including the phone number, email address, and password. 
+
+![The phone and password change pages!](/Images/8.png "The phone and password change pages")
+
+> The Identity UI Pages for Changing Account Details
+
+| Name | Description |
+| :--- | :--- |
+| Account/Manage/Index | This page allows the user to set a phone number. |
+| Account/Manage/ChangePassword | This page allows a new password to be chosen. |
+| Account/Manage/Email | This page allows a new email address to be chosen and sends a confirmation email to the user. |
+| Account/ConfirmEmailChange | This page allows a new email address to be chosen and sends a confirmation email to the user. |
+
+## Managing Personal Data
+> The Identity UI package provides a generic personal data feature that provides access to the data in the user store and allows the user to delete their account.
+
+![Managing personal data!](/Images/9.png "Managing personal data")
+
+![Managing personal data!](/Images/10.png "Managing personal data")
+
+> The Identity UI Pages for Managing Personal Data
+
+| Name | Description |
+| :--- | :--- |
+| Account/Manage/PersonalData | This is the page that presents the user with the buttons for downloading or deleting data. |
+| Account/Manage/DownloadPersonalData | This is the page that generates the JDON document containing the user’s data. |
+| Account/Manage/DeletePersonalData | This is the page that prompts the user for their password and deletes the account. |
+
+## Denying Access
+> The final workflow is used when the user is denied access to an action or Razor Page. This is known as the forbidden response, and it is the counterpart to the challenge response that prompts for user credentials
+
+![The forbidden response!](/Images/11.png "The forbidden response")
+
+> The Identity UI Page for the Forbidden Response
+
+| Name | Description |
+| :--- | :--- |
+| Account/AccessDenied | This page displays a warning to the user. |
+
+## Recap what we did till now
+<code>I showed you how to Add Identity and the Identity UI package to a project. 
+I showed you how to prepare the Identity database, I explained how to override individual files to create a consistent layout, and I
+described the default workflows that the Identity UI package provides.</code>
+
+

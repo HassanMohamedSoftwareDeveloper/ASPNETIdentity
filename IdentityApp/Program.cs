@@ -1,4 +1,8 @@
 using IdentityApp.Models;
+using IdentityApp.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +18,19 @@ builder.Services.AddHttpsRedirection(opts =>
 {
     opts.HttpsPort = 44350;
 });
+
+builder.Services.AddDbContext<IdentityDbContext>(opts =>
+{
+    opts.UseSqlServer(
+    builder.Configuration["ConnectionStrings:IdentityConnection"],
+    opts => opts.MigrationsAssembly("IdentityApp")
+    );
+});
+
+builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
+
+builder.Services.AddDefaultIdentity<IdentityUser>()
+.AddEntityFrameworkStores<IdentityDbContext>();
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())

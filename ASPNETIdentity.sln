@@ -12,7 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Requests", "Requests", "{67
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IdentityTodo", "IdentityTodo\IdentityTodo.csproj", "{DBB59D02-B097-47B0-8FA8-413C78FF2DD6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdentityApp", "IdentityApp\IdentityApp.csproj", "{03F2ABFC-2D98-45CD-B50E-EC483FB99229}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IdentityApp", "IdentityApp\IdentityApp.csproj", "{03F2ABFC-2D98-45CD-B50E-EC483FB99229}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
