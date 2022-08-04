@@ -1802,4 +1802,190 @@ libman install qrcodejs -d wwwroot/lib/qrcode
 I showed you how to prepare the Identity database, I explained how to override individual files to create a consistent layout, and I
 described the default workflows that the Identity UI package provides.</code>
 
+# Configuring Identity
+> Learn how to configure Identity, including how to support third-party services from Google, Facebook, and Twitter.
+
+> Some of these configuration options are part of the ASP.NET Core platform, but since they are so closely related to ASP.NET Core Identity.
+
+##  Putting Identity Configuration Options in Context :
+| Question | Answer |
+| :--- | :--- |
+| What are they? | The Identity configuration options are a set of properties whose values are used by the classes that implement the Identity API, which can be used directly or consumed through the Identity UI package. |
+| Why are they useful? | These configuration options let you change the way that Identity behaves, which can make your application easier to use or allow you to meet the type of security standard that is commonly found in large corporations. |
+| How are they used? | Identity is configured using the standard ASP.NET Core options pattern. The configuration for external authentication services is done using extension methods provided in the package that Microsoft provides for each provider. |
+| Are there any pitfalls or limitations?  | It is important to ensure that configuration changes do not cause problems for existing user accounts by enforcing a restriction that prevents the user from signing in. |
+| Are there any alternatives? | The configuration options are used by the classes that provide the Identity API, which means the only way to avoid them is to create custom implementations. |
+
+## Part Summary
+| Problem | Solution |
+| :--- | :--- |
+| Specify policies for usernames, email addresses, passwords, account confirmations, and lockouts | Specify policies for usernames,
+email addresses, passwords, account confirmations, and lockouts |
+| Configure Facebook authentication | Install the package Microsoft provides for Facebook and use the AddFacebook method to configure the application ID and secret. |
+| Configure Google authentication | Install the package Microsoft provides for Google and use the AddGoogle method to configure the application ID and secret. |
+| Configure Twitter authentication | Install the package Microsoft provides for Twitter and use the AddTwitter method to configure the application ID and secret. |
+
+> Resetting the Databases
+```Cli
+cd IdentityApp
+dotnet ef database drop --force --context ProductDbContext
+dotnet ef database drop --force --context IdentityDbContext
+dotnet ef database update --context ProductDbContext
+dotnet ef database update --context IdentityDbContext
+```
+
+## Configuring Identity
+> Identity is configured using the standard ASP.NET Core options pattern, using the settings defined by the <code>IdentityOptions</code> class defined in the <code>Microsoft.AspNetCore.Identity</code> namespace.
+
+> Useful IdentityOptions Properties
+
+| Name | Description |
+| :--- | :--- |
+| User | This property is used to configure the <code>username</code> and <code>email</code> options for user accounts using the <code>UserOptions</code> class. |
+| Password | This property is used to define the <code>password policy</code> using the <code>PasswordOptions</code> class. |
+| SignIn | This property is used to specify the <code>confirmation</code> requirements for accounts using the <code>SignInOptions</code> class. |
+| Lockout | This property uses the <code>LockoutOptions</code> class to define the policy for locking out accounts after a number of failed attempts to sign in. |
+
+### Configuring User Options
+> The <code>IdentityOptions.User</code> property is assigned a <code>UserOptions</code> object, which is used to configure the properties.
+
+> The UserOptions Properties
+
+| Name | Description |
+| :--- | :--- |
+| AllowedUserNameCharacters | This property specifies the characters allowed in usernames. The default value is the set of upper and lowercase A–Z characters, the digits 0–9, and the symbols -._@+ (hyphen, period, underscore, at character,and plus symbol). |
+| RequireUniqueEmail | This property determines whether email addresses must be unique. The default value is false. |
+
+> The <code>Identity UI</code> package isn’t affected by either property because it uses email addresses as usernames. 
+
+> One consequence of this decision is that email addresses are effectively unique because Identity requires usernames to be unique.
+
+> The default value of the <code>UserOptions.RequireUniqueEmail</code> property is <code>false</code>.
+
+> You will receive an error message if you trying to create an account with email already created because the <code>Identity UI</code> package uses the <code>email</code> address as the <code>username</code> when creating an account.
+
+![Creating an account with an existing email address!](/Images/12.png "Creating an account with an existing email address")
+
+### Configuring Password Options
+> The <code>IdentityOptions.Password</code> property is assigned a <code>PasswordOptions</code> object, which is used to configure the properties.
+
+> The PasswordOptions Properties :
+
+| Name | Description |
+| :--- | :--- |
+| RequiredLength | This property specifies a minimum number of characters for passwords. The default value is 6. |
+| RequiredUniqueChars | This property specifies the minimum number of unique characters that a password must contain. The default value is 1. |
+| RequireNonAlphanumeric | This property specifies whether passwords must contain nonalphanumeric characters, such as punctuation characters. The default value is true. |
+| RequireLowercase | This property specifies whether passwords must contain lowercase characters. The default value is true. |
+| RequireUppercase | This property specifies whether passwords must contain uppercase characters. The default value is true. |
+| RequireDigit | This property specifies whether passwords must contain number characters.The default value is true.|
+
+> The <code>IdentityUI</code> package only uses <code>email</code> addresses to identify users, to which the <code>UserOptions.AllowedUserNameCharacters</code> does not apply.
+
+> Configuring <code>Password</code> Settings in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+
+```C#
+builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
+{
+    opts.Password.RequiredLength = 8;
+    opts.Password.RequireDigit = false;
+    opts.Password.RequireLowercase = false;
+    opts.Password.RequireUppercase = false;
+    opts.Password.RequireNonAlphanumeric = false;
+})
+.AddEntityFrameworkStores<IdentityDbContext>();
+```
+> Password Length < 8
+
+![Specifying password options!](/Images/13.png "Specifying password options")
+
+> Password Length >= 8
+
+![Specifying password options!](/Images/14.png "Specifying password options")
+
+### Configuring Sign-in Confirmation Requirements
+> The <code>IdentityOptions.SignIn</code> property is assigned a <code>SignInOptions</code> object, which is used to configure the confirmation requirements for accounts using the properties.
+
+> The SignInOptions Properties
+
+| Name | Description |
+| :--- | :--- |
+| RequireConfirmedEmail | When this property is set to true, only accounts with confirmed email addresses can sign in. The default value is false. |
+| RequireConfirmedPhoneNumber | When this property is set to true, only accounts with confirmed phone numbers can sign in. The default value is false. |
+| RequireConfirmedAccount | When set to true, only accounts that pass verification by the <code>IUserConfirmation< T></code> interface can sign in. The default implementation checks that the email address has been confirmed. This default value for this property is false. |
+
+> The Identity UI package doesn’t support phone number confirmations, so the RequireConfirmedPhoneNumber property must not be set to true because it will lock all users out of the application.
+
+> It is a good idea to set the <code>RequireConfirmedAccount</code> property to true, If the application uses email for tasks such as password recovery.
+
+> Requiring Email Confirmations in the <code>Program.cs</code> File in the <code>IdentityApp</code> folder.
+```C#
+builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
+{
+    opts.Password.RequiredLength = 8;
+    opts.Password.RequireDigit = false;
+    opts.Password.RequireLowercase = false;
+    opts.Password.RequireUppercase = false;
+    opts.Password.RequireNonAlphanumeric = false;
+
+    opts.SignIn.RequireConfirmedAccount = true;
+})
+.AddEntityFrameworkStores<IdentityDbContext>();
+```
+
+![The Identity UI confirmation behavior!](/Images/15.png "The Identity UI confirmation behavior")
+
+> If you attempt to sign in using the new account without using the confirmation link, then you will be presented with a generic Invalid Login Attempt error.
+
+> Click the Resend Email Confirmation link displayed by the Login page to generate a new confirmation email.
+
+![Confirming an email address and signing into the application!](/Images/16.png "Confirming an email address and signing into the application")
+
+### Configuring Lockout Options
+> The <code>IdentityOptions.Lockout</code> property is assigned a LockoutOptions object, which is used to configure lockouts that prevent sign-ins, even if the correct password is used, after a number of failed attempts.
+
+> The LockoutOptions Properties :
+
+| Name | Description |
+| :--- | :--- |
+| MaxFailedAccessAttempts | This property specifies the number of failed attempts allowed before an account is locked out. The default value is 5. |
+| DefaultLockoutTimeSpan | This property specifies the duration for lockouts. The default value is 5 minutes. |
+| AllowedForNewUsers | This property determines whether the lockout feature is enabled for new accounts. The default value is true. |
+
+## Configuring External Authentication
+> External authentication delegate the process of authenticating users to a third-party service.
+
+> External authentication generally uses the OAuth protocol.
+
+> A registration process is required for each external service, during which the application is described and the level of access to user data, known as the scope, is declared.
+
+> During registration, you will usually have to specify a redirection URL.
+
+> During the authentication process, the external service will send the user’s browser an HTTP redirection to this URL, which triggers a request to ASP.NET Core, providing the application with data required to complete the sign-in.
+
+> During <code>development</code>, this URL will be to <code>localhost</code>, 
+such as <code>https://localhost:44350/signin-google</code>, for example.
+
+---
+<code>
+When you are ready to deploy your application, you will need to update your application’s registration
+with each external service to use a publicly accessible urL that contains a hostname that appears in the dnS.
+</code>
+---
+
+> The registration process produces two data items: the <code>client ID</code> and the <code>client secret</code>. 
+
+> The <code>client ID</code> identifies the application to the external authentication service and can be shared publicly. 
+
+> The <code>client secret</code> is secret, as the name suggests, and should be <code>protected</code>.
+
+### Configuring Facebook Authentication
+
+> To register the application with Facebook, go to <code> https://developers.facebook.com/apps </code> and sign in with your Facebook account.
+
+1. Click the Create App button.
+2. Select <code>Build Connected Experiences</code> from the list, and click the Continue button. 
+3. Enter <code>IdentityApp</code> into the <code>App Display Name</code> field and click the <code>Create</code> App button.
+
+![Creating a new application!](/Images/17.png "Creating a new application")
 

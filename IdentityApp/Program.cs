@@ -29,7 +29,16 @@ builder.Services.AddDbContext<IdentityDbContext>(opts =>
 
 builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 
-builder.Services.AddDefaultIdentity<IdentityUser>()
+builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
+{
+    opts.Password.RequiredLength = 8;
+    opts.Password.RequireDigit = false;
+    opts.Password.RequireLowercase = false;
+    opts.Password.RequireUppercase = false;
+    opts.Password.RequireNonAlphanumeric = false;
+
+    opts.SignIn.RequireConfirmedAccount = true;
+})
 .AddEntityFrameworkStores<IdentityDbContext>();
 
 var app = builder.Build();
