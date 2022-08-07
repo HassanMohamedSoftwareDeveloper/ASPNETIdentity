@@ -1980,12 +1980,159 @@ with each external service to use a publicly accessible urL that contains a host
 > The <code>client secret</code> is secret, as the name suggests, and should be <code>protected</code>.
 
 ### Configuring Facebook Authentication
-
 > To register the application with Facebook, go to <code> https://developers.facebook.com/apps </code> and sign in with your Facebook account.
 
 1. Click the Create App button.
 2. Select <code>Build Connected Experiences</code> from the list, and click the Continue button. 
 3. Enter <code>IdentityApp</code> into the <code>App Display Name</code> field and click the <code>Create</code> App button.
 
-![Creating a new application!](/Images/17.png "Creating a new application")
+
+  ![Creating a new application!](/Images/17.png "Creating a new application")
+  ![Creating a new application!](/Images/18.png "Creating a new application")
+  ![Creating a new application!](/Images/19.png "Creating a new application")
+
+> Once you have created a Facebook application, you will be returned to the developer dashboard and presented with a list of optional products to use.
+
+> Locate <code>Facebook Login</code> and click the <code>Setup</code> button.
+
+  ![The Facebook Login settings!](/Images/20.png "The Facebook Login settings")
+  ![The Facebook Login settings!](/Images/21.png "The Facebook Login settings")
+
+> You don’t need to specify a redirection URL because Facebook allows redirection to localhost URLs during development.
+
+> When you are ready to deploy the application, you will need to return to this page and finalize your configuration, including providing the public-facing redirection URL.
+
+> Details of the configuration options are included in the Facebook Login documentation
+<code> https://developers.facebook.com/docs/facebook-login </code>.
+
+> Navigate to the <code>Basic</code> section in the Settings area to get the <code>App ID</code> and <code>App Secret</code>.
+
+  ![The application credentials for external authentication!](/Images/22.png "The application credentials for external authentication")
+
+### Configuring ASP.NET Core for Facebook Authentication
+> Store the <code>App ID</code> and <code>App Secret</code> using the <code>.NET secrets</code> feature, 
+which ensures that these values won’t be included when the source code is committed into a repository.
+```cli
+dotnet user-secrets init
+dotnet user-secrets set "Facebook:AppId" "<app-id>"
+dotnet user-secrets set "Facebook:AppSecret" "<app-secret>"
+```
+> Adding the Facebook Package
+```cli
+dotnet add package Microsoft.AspNetCore.Authentication.Facebook
+```
+> Configuring <code>Facebook Authentication</code> in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+builder.Services.AddAuthentication().AddFacebook(opts =>
+{
+    opts.AppId = builder.Configuration["Facebook:AppId"];
+    opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
+});
+```
+> The <code>AddAuthentication</code> method sets up the ASP.NET Core authentication features.
+
+> This method is called automatically by the <code>AddDefaultIdentity</code> method, which is why it has not been needed until now.
+
+> The <code>AddFacebook</code> method sets up the Facebook authentication support provided by Microsoft, which is configured using the <code>options pattern</code> with the <code>FacebookOptions</code> class.
+
+> Selected FacebookOptions Properties :
+
+| Name | Description |
+| :--- | :--- |
+| AppId | This property is used to configure the App ID, which is the term Facebook uses for the client ID. |
+| AppSecret | This property is used to configure the App Secret, which is the term Facebook uses for the client secret. |
+| Fields | This property specifies the data values that are requested from Facebook during authentication. The default values are name, email, first_name, and last_name. See https://developers.facebook.com/docs/graph-api/reference/user for a full list of fields, but bear in mind that some fields require applications to go through an additional validation process.|
+
+> Restart the application and try to loin again.
+
+  ![Signing in with Facebook!](/Images/23.png "Signing in with Facebook")
+  ![Signing in with Facebook!](/Images/24.png "Signing in with Facebook")
+  ![Signing in with Facebook!](/Images/25.png "Signing in with Facebook")
+
+### Configuring Google Authentication
+> To register the example application, navigate to <code> https://console.developers.google.com </code> and <code>sign in</code> with a Google account. 
+
+1. Click the <code>OAuth Consent Screen option</code>.
+2. Select <code>External for User Type</code>. which will allow any Google account to authenticate for your application.
+3. Click Create, and you will be presented with a form. 
+4. Enter <code>IdentityApp</code> into the <code>App Name</code> field and enter your <code>email address</code> in the <code>User Support Email</code> and <code>Developer Contact Information</code> sections of the form. 
+5. Click Save and Continue, and you will be presented with the scope selection screen, which is used to specify the scopes that your application requires.
+6. Click the Add or Remove Scopes button, and you be presented with the list of scopes that your application can request. 
+7. Check three scopes: <code>openid, auth/userinfo.email, and auth/userinfo.profile</code>. 
+8. Click the Update button to save your selection.
+9. Click Save and Continue to return to the OAuth consent screen and then click Back to Dashboard.
+
+> Configuring the Google OAuth consent screen:
+
+  ![Configuring the Google OAuth consent screen!](/Images/26.png "Configuring the Google OAuth consent screen")
+  ![Configuring the Google OAuth consent screen!](/Images/27.png "Configuring the Google OAuth consent screen")
+  ![Configuring the Google OAuth consent screen!](/Images/28.png "Configuring the Google OAuth consent screen")
+  ![Configuring the Google OAuth consent screen!](/Images/29.png "Configuring the Google OAuth consent screen")
+  ![Configuring the Google OAuth consent screen!](/Images/30.png "Configuring the Google OAuth consent screen")
+
+> Click the Publish App button and click Confirm:
+
+  ![Publishing the application!](/Images/31.png "Publishing the application")
+
+> Click the <code>Credentials</code> link, click the <code>Create Credentials</code> button at the top of the page, and select <code>OAuth Client ID</code> from the list of options.
+
+> Select <code>Web Application</code> from the Application Type list and enter <code>IdentityApp</code> in the Name field.
+
+> Click <code>Add URI</code> in the <code>Authorized Redirect URIs</code> section and enter <code> https://localhost:44350/signin-google </code> into the text field.
+
+> Click the Create button, and you will be presented with the <code>client ID</code> and <code>client secret</code> for your application.
+
+  ![Configuring application credentials!](/Images/32.png "Configuring application credentials")
+  ![Configuring application credentials!](/Images/33.png "Configuring application credentials")
+  ![Configuring application credentials!](/Images/34.png "Configuring application credentials")
+
+### Configuring ASP.NET Core for Google Authentication
+> Store the <code>Client ID</code> and <code>Client Secret</code> using the .NET secrets feature, which ensures that these values won’t be included when the source code is committed into a repository.
+```cli
+dotnet user-secrets init
+dotnet user-secrets set "Google:ClientId" "<client-id>"
+dotnet user-secrets set "Google:ClientSecret" "<client-secret>"
+```
+
+> Adding the Google Package
+```cli
+dotnet add package Microsoft.AspNetCore.Authentication.Google
+```
+
+> Configuring <code>Google Authentication</code> in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder
+```C#
+builder.Services.AddAuthentication().AddFacebook(opts =>
+{
+    opts.AppId = builder.Configuration["Facebook:AppId"];
+    opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
+})
+    .AddGoogle(opts =>
+    {
+        opts.ClientId = builder.Configuration["Google:ClientId"];
+        opts.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    });
+```
+> The <code>AddGoogle</code> method sets up the <code>Google authentication</code> handler and is configured using the options pattern with the <code>GoogleOptions</code> class.
+
+> Selected GoogleOptions Properties:
+
+| Name | Description |
+| :--- | :--- |
+| ClientId | This property is used to specify the client ID for the application. |
+| ClientSecret | This property is used to specify the application’s client secret. |
+| Scope | This property is used to set the scopes that are requested from the authentication service. The default value requests the scopes specified during the setup process, but additional scopes are available. See <code> https://developers.google.com/identity/protocols/oauth2/web-server </code>. |
+
+> Restart the application and try to loin again.
+
+  ![Signing in with Google!](/Images/35.png "Signing in with Google")
+
+<!--### Configuring Twitter Authentication
+> To register the application with Twitter, go to <code> https://developer.twitter.com/en/portal/dashboard </code>and <code>sign in</code> with a Twitter account.
+
+1. Click the Create Project button.
+1. Set the project name to Identity Project, and click the Next button.
+1. Select a description from the list and click the Next button.
+1. Enter a name and click the Complete button to finish the first part of the setup.
+
+<mark>The name must be unique</mark>-->
 

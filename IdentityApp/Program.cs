@@ -41,6 +41,18 @@ builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
 })
 .AddEntityFrameworkStores<IdentityDbContext>();
 
+builder.Services.AddAuthentication().AddFacebook(opts =>
+{
+    opts.AppId = builder.Configuration["Facebook:AppId"];
+    opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
+})
+    .AddGoogle(opts =>
+    {
+        opts.ClientId = builder.Configuration["Google:ClientId"];
+        opts.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    });
+
+
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
