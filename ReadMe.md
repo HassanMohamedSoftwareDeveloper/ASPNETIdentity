@@ -2126,7 +2126,7 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
 
   ![Signing in with Google!](/Images/35.png "Signing in with Google")
 
-<!--### Configuring Twitter Authentication
+### Configuring Twitter Authentication
 > To register the application with Twitter, go to <code> https://developer.twitter.com/en/portal/dashboard </code>and <code>sign in</code> with a Twitter account.
 
 1. Click the Create Project button.
@@ -2134,5 +2134,75 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
 1. Select a description from the list and click the Next button.
 1. Enter a name and click the Complete button to finish the first part of the setup.
 
-<mark>The name must be unique</mark>-->
+<mark>The name must be unique</mark>
 
+  ![Creating a Twitter application configuration!](/Images/36.png "Creating a Twitter application configuration")
+  ![Creating a Twitter application configuration!](/Images/37.png "Creating a Twitter application configuration")
+  ![Creating a Twitter application configuration!](/Images/38.png "Creating a Twitter application configuration")
+  ![Creating a Twitter application configuration!](/Images/39.png "Creating a Twitter application configuration")
+  ![Creating a Twitter application configuration!](/Images/40.png "Creating a Twitter application configuration")
+
+> When you create the Twitter app, you will be presented with a set of keys:
+
+> <code>It is important to make a note of the API key and the API key secret (which are how Twitter refers to the client ID and the client secret) because you won’t be able to see them again.</code>
+
+  ![Completing the registration process!](/Images/41.png "Completing the registration process")
+  ![Completing the registration process!](/Images/42.png "Completing the registration process")
+  ![Completing the registration process!](/Images/43.png "Completing the registration process")
+  ![Completing the registration process!](/Images/44.png "Completing the registration process")
+  
+
+> You will also have to enter URLs for the website.
+
+### Configuring ASP.NET Core for Twitter Authentication
+> Store the <code>Client ID</code> and <code>Client Secret</code> using the .NET secrets feature, which ensures that these values won’t be included when the source code is committed into a repository.
+
+> Storing the Twitter Client ID and Secret
+```cli
+dotnet user-secrets init
+dotnet user-secrets set "Twitter:ApiKey" "<client-id>"
+dotnet user-secrets set "Twitter:ApiSecret" "<client-secret>"
+```
+> Adding the Twitter Package
+```cli
+dotnet add package Microsoft.AspNetCore.Authentication.Twitter
+```
+
+> Configuring <code>Twitter Authentication</code> in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+builder.Services.AddAuthentication().AddFacebook(opts =>
+{
+    opts.AppId = builder.Configuration["Facebook:AppId"];
+    opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
+})
+    .AddGoogle(opts =>
+    {
+        opts.ClientId = builder.Configuration["Google:ClientId"];
+        opts.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    })
+    .AddTwitter(opts =>
+    {
+        opts.ConsumerKey = builder.Configuration["Twitter:ApiKey"];
+        opts.ConsumerSecret = builder.Configuration["Twitter:ApiSecret"];
+    });
+```
+
+> The <code>AddTwitter</code> method sets up the Twitter authentication handler and is configured using the options pattern with the <code>TwitterOptions</code> class.
+
+> Selected TwitterOptions Properties:
+
+| Name | Description |
+| :--- | :--- |
+| ConsumerKey | This property is used to specify the client ID for the application. |
+| ConsumerSecret | This property is used to specify the application’s client secret. |
+| RetrieveUserDetails | When set to true, this property requests user data, including the email address, as part of the authentication process. This property isn’t required when using the Identity UI package, which allows users to enter an email address. |
+
+> Restart the application and try to loin again.
+
+  ![Signing in with Twitter!](/Images/45.png "Signing in with Twitter")
+
+## Recap what we did till now
+<code>I described the Identity configuration options, which determine the validation requirements
+for accounts, passwords, and control-related features such as lockouts. I also described the process for
+configuring ASP.NET Core and the Identity UI package to support external authentication services from
+Google, Facebook, and Twitter.</code>

@@ -50,6 +50,11 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
     {
         opts.ClientId = builder.Configuration["Google:ClientId"];
         opts.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    })
+    .AddTwitter(opts =>
+    {
+        opts.ConsumerKey = builder.Configuration["Twitter:ApiKey"];
+        opts.ConsumerSecret = builder.Configuration["Twitter:ApiSecret"];
     });
 
 
