@@ -41,7 +41,8 @@ builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
 })
 .AddEntityFrameworkStores<IdentityDbContext>();
 
-builder.Services.AddAuthentication().AddFacebook(opts =>
+builder.Services.AddAuthentication()
+    .AddFacebook(opts =>
 {
     opts.AppId = builder.Configuration["Facebook:AppId"];
     opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
@@ -55,6 +56,11 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
     {
         opts.ConsumerKey = builder.Configuration["Twitter:ApiKey"];
         opts.ConsumerSecret = builder.Configuration["Twitter:ApiSecret"];
+    })
+    .AddMicrosoftAccount(microsoftOptions =>
+    {
+        microsoftOptions.ClientId = builder.Configuration["Microsoft:ClientId"];
+        microsoftOptions.ClientSecret = builder.Configuration["Microsoft:ClientSecret"];
     });
 
 

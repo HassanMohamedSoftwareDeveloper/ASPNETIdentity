@@ -2201,8 +2201,85 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
 
   ![Signing in with Twitter!](/Images/45.png "Signing in with Twitter")
 
+### Configuring Microsoft Authentication
+> To register the application with Microsoft, go to <code> https://go.microsoft.com/fwlink/?linkid=2083908 </code>and <code>sign in</code> with a Microsoft account.
+
+> Navigate to the Azure portal - App registrations page and create or sign into a Microsoft account:
+1. Select New registration.
+1. Enter a Name.
+1. Select an option for Supported account types.
+    + The MicrosoftAccount package supports App Registrations created using "Accounts in any organizational directory" or "Accounts in any organizational directory and Microsoft accounts" options by default.
+    + To use other options, set AuthorizationEndpoint and TokenEndpoint members of MicrosoftAccountOptions used to initialize the Microsoft Account authentication to the URLs displayed on Endpoints page of the App Registration after it is created (available by clicking Endpoints on the Overview page).
+1. Under Redirect URI, enter your development URL with <code>/signin-microsoft</code> appended. For example, <code> https://localhost:44350/signin-microsoft </code> . The Microsoft authentication scheme configured later in this sample will automatically handle requests at /signin-microsoft route to implement the OAuth flow.
+1. Select Register.
+
+> Create client secret
+
+1. In the left pane, select Certificates & secrets.
+1. Under Client secrets, select New client secret
+    + Add a description for the client secret.
+    + Select the Add button.
+1. Under Client secrets, copy the value of the client secret.
+
+  ![Create App!](/Images/46.png "Create App")
+  ![Create App!](/Images/47.png "Create App")
+
+### Configuring ASP.NET Core for Microsoft Authentication
+> Store the <code>Client ID</code> and <code>Client Secret</code> using the .NET secrets feature, which ensures that these values won’t be included when the source code is committed into a repository.
+
+> Storing the microsoftt Client ID and Secret
+```cli
+dotnet user-secrets init
+dotnet user-secrets set "Microsoft:ClientId" "<client-id>"
+dotnet user-secrets set "Microsoft:ClientSecret" "<client-secret>"
+```
+
+> Application (client) ID found on the Overview page of the App Registration and Client Secret you created on the Certificates & secrets page with Secret Manager. 
+
+> Adding the MicrosoftAccount Package
+```cli
+dotnet add package Microsoft.AspNetCore.Authentication.MicrosoftAccount
+```
+> Configuring <code>Microsoft Authentication</code> in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+builder.Services.AddAuthentication().AddFacebook(opts =>
+{
+    opts.AppId = builder.Configuration["Facebook:AppId"];
+    opts.AppSecret = builder.Configuration["Facebook:AppSecret"];
+})
+    .AddGoogle(opts =>
+    {
+        opts.ClientId = builder.Configuration["Google:ClientId"];
+        opts.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    })
+    .AddTwitter(opts =>
+    {
+        opts.ConsumerKey = builder.Configuration["Twitter:ApiKey"];
+        opts.ConsumerSecret = builder.Configuration["Twitter:ApiSecret"];
+    })
+     .AddMicrosoftAccount(microsoftOptions =>
+    {
+        microsoftOptions.ClientId = builder.Configuration["Microsoft:ClientId"];
+        microsoftOptions.ClientSecret = builder.Configuration["Microsoft:ClientSecret"];
+    });
+```
+
+> The <code>AddMicrosoftAccount</code> method sets up the Microsoft authentication handler and is configured using the options pattern with the <code>MicrosoftOptions</code> class.
+
+> Selected MicrosoftOptions Properties:
+
+| Name | Description |
+| :--- | :--- |
+| ClientId | This property is used to specify the client ID for the application. |
+| ClientSecret | This property is used to specify the application’s client secret. |
+
+
+> Restart the application and try to loin again.
+
+  ![Signing in with Microsoft!](/Images/48.png "Signing in with Microsoft")
+
 ## Recap what we did till now
 <code>I described the Identity configuration options, which determine the validation requirements
 for accounts, passwords, and control-related features such as lockouts. I also described the process for
 configuring ASP.NET Core and the Identity UI package to support external authentication services from
-Google, Facebook, and Twitter.</code>
+Google, Facebook, Microsoft, and Twitter.</code>
