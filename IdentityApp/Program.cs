@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("IdentityDbContextConnection") ?? throw new InvalidOperationException("Connection string 'IdentityDbContextConnection' not found.");
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddDbContext<ProductDbContext>(opts =>
@@ -38,6 +39,8 @@ builder.Services.AddDefaultIdentity<IdentityUser>(opts =>
     opts.Password.RequireNonAlphanumeric = false;
 
     opts.SignIn.RequireConfirmedAccount = true;
+
+
 })
 .AddEntityFrameworkStores<IdentityDbContext>();
 

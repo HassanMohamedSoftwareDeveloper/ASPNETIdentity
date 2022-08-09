@@ -2283,3 +2283,865 @@ builder.Services.AddAuthentication().AddFacebook(opts =>
 for accounts, passwords, and control-related features such as lockouts. I also described the process for
 configuring ASP.NET Core and the Identity UI package to support external authentication services from
 Google, Facebook, Microsoft, and Twitter.</code>
+
+---
+
+## Adapting Identity UI
+> The Identity UI package has been designed for self-service applications that support authenticators for twofactor authentication and external authentication with third-party services.
+
+> There is some flexibility within that design so that individual features can be altered or disabled, and new features can be introduced.
+
+> Putting Identity UI Adaptations in Context:
+
+| Question | Answer |
+| :--- | :--- |
+| What are they? | Adaptations allow the files in the Identity UI package to be added to the project so they can be modified, allowing features to be created, customized, or disabled. |
+| Why are they useful? | If your project almost fits into the general model expected by the Identity UI package, adaptations can customize Identity UI to make it fit your needs exactly |
+| How are they used? | azor Pages, views, and other files are added to the project using a process known as scaffolding. Scaffolded files are given precedence over those in the Identity UI package, which means that changes made to the scaffolded files become part of the content presented to the user. |
+| Are there any pitfalls or limitations? | Although you can customize individual features, you cannot adjust the underlying approach taken by the Identity UI package, which means there are limits to extent of the changes you can make. Some scaffolding operations overwrite files even if they have been changed, requiring an awkward shuffling of files to protected customizations. |
+| Are there any alternatives? | Identity provides an API that can be used to create custom workflows. |
+
+### What is th Identity UI Scaffolding ?
+> Is the process of using existig feature in the Identity UI package in your project, So you can easy modify features rather than re-creating them completely.
+
+### How to Use UI Scaffolding ?
+> The scaffolding process relies on a global .NET tool package.
+
+> Use a PowerShell command prompt to run the below commands to remove any existing version of the package and install the version required.
+```cli
+dotnet tool uninstall --global dotnet-aspnet-codegenerator
+dotnet tool install --global dotnet-aspnet-codegenerator
+```
+> An additional package must be added to the project to provide the global tool with the templates it needs to create new items.
+```cli
+dotnet add package Microsoft.VisualStudio.Web.CodeGeneration.Design
+```
+
+### Identity UI Pages for Scaffolding
+> The command-line scaffolding tool allows individual pages to be scaffolded.
+
+> To list the  complete list of the Razor Pages available for scaffolding use below command.
+```cli
+dotnet aspnet-codegenerator identity --listFiles
+```
+
+### Using the Identity UI Scaffolding
+
+####  Using Scaffolding to Change HTML :
+
+1. Installing the Font Awesome Package
+```cli
+ libman install font-awesome -d wwwroot/lib/font-awesome
+```
+2. Update <code>_CustomIdentityLayout.cshtml</code> File in the <code>Pages/Shared</code> Folder with below code.
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link rel="stylesheet" href="/Identity/lib/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/Identity/css/site.css" />
+    <script src="/Identity/lib/jquery/dist/jquery.js"></script>
+    <script src="/Identity/lib/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script src="/Identity/js/site.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="/lib/qrcode/qrcode.min.js"></script>
+    <link href="/lib/font-awesome/css/all.min.css" rel="stylesheet" />
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-secondary">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <div class="m-2">
+        @RenderBody()
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+
+    <script type="text/javascript">
+        var element = document.getElementById("qrCode");
+        if (element !== null) {
+            new QRCode(element, {
+                text: document.getElementById("qrCodeData").getAttribute("data-url"),
+                width: 150, height: 150
+            });
+            element.previousElementSibling?.remove();
+        }
+    </script>
+
+</body>
+</html>
+```
+3. Add a Razor View named <code>_ExternalButtonPartial.cshtml</code> to the <code>Pages/Shared</code> folder and use it to define the partial view.
+```Razor
+@model Microsoft.AspNetCore.Authentication.AuthenticationScheme
+
+<button type="submit"
+        class="btn btn-primary" name="provider" value="@Model.Name">
+    <i class="@($"fab fa-{Model.Name.ToLower()}")"></i>
+    @Model.DisplayName
+</button>
+```
+> The model for the partial view is an <code>AuthenticationScheme</code> object, which is how ASP.NET Core describes an authentication option, with Name and DisplayName properties.
+
+4. Now scaffold the page that displays the login buttons
+```cli
+dotnet aspnet-codegenerator identity --dbContext Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext --files Account.Login
+```
+> The <code>dotnet aspnet-codegenerator identity</code> selects the Identity UI scaffolding tool.
+
+> The <code>--dbContext</code> argument is used to specify the Entity Framework Core database context class.
+
+> This argument must specify the complete name, including the namespace, of the context class used by the application.
+
+> <mark>If the name does not match exactly, the scaffolding tool will create a new database context class, which will lead to
+inconsistent results later.</mark>
+
+> The <code>--files</code> argument specifies the files that should be scaffolded, using one or more names from the list produced in the previous section, separated by <code>semicolons</code>.
+
+5. Applying a Partial in the <code>Login.cshtml</code> File in the <code>Areas/Identity/Pages/Account</code> Folder.
+```Razor
+@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Log in";
+}
+
+<h1>@ViewData["Title"]</h1>
+<div class="row">
+    <div class="col-md-4">
+        <section>
+            <form id="account" method="post">
+                <h2>Use a local account to log in.</h2>
+                <hr />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-floating">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+                    <label asp-for="Input.Email" class="form-label"></label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="form-floating">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                    <label asp-for="Input.Password" class="form-label"></label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div>
+                    <div class="checkbox">
+                        <label asp-for="Input.RememberMe" class="form-label">
+                            <input class="form-check-input" asp-for="Input.RememberMe" />
+                            @Html.DisplayNameFor(m => m.Input.RememberMe)
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <button id="login-submit" type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+                </div>
+                <div>
+                    <p>
+                        <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
+                    </p>
+                    <p>
+                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
+                    </p>
+                    <p>
+                        <a id="resend-confirmation" asp-page="./ResendEmailConfirmation">Resend email confirmation</a>
+                    </p>
+                </div>
+            </form>
+        </section>
+    </div>
+    <div class="col-md-6 col-md-offset-2">
+        <section>
+            <h3>Use another service to log in.</h3>
+            <hr />
+            @{
+                if ((Model.ExternalLogins?.Count ?? 0) == 0)
+                {
+                    <div>
+                        <p>
+                            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
+                            about setting up this ASP.NET application to support logging in via external services</a>.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
+                        <div>
+                            <p>
+                                @foreach (var provider in Model.ExternalLogins)
+                                {
+                                    <partial name="_ExternalButtonPartial"model="provider" />
+                                }
+                            </p>
+                        </div>
+                    </form>
+                }
+            }
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+```
+> In the case of the external authentication buttons, I also need to change the Account/Register page, which also presents buttons for the configured services.
+
+6. Scaffold the page that add Register page
+```cli
+dotnet aspnet-codegenerator identity --dbContext Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext --files Account.Register
+```
+
+7. Applying a Partial in the <code>Register.cshtml</code> File in the <code>Areas/Identity/Pages/Account</code> Folder.
+```Razor
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+            <h2>Create a new account.</h2>
+            <hr />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-floating">
+                <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+                <label asp-for="Input.Email"></label>
+                <span asp-validation-for="Input.Email" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+                <label asp-for="Input.Password"></label>
+                <span asp-validation-for="Input.Password" class="text-danger"></span>
+            </div>
+            <div class="form-floating">
+                <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+                <label asp-for="Input.ConfirmPassword"></label>
+                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+            </div>
+            <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+        </form>
+    </div>
+    <div class="col-md-6 col-md-offset-2">
+        <section>
+            <h3>Use another service to register.</h3>
+            <hr />
+            @{
+                if ((Model.ExternalLogins?.Count ?? 0) == 0)
+                {
+                    <div>
+                        <p>
+                            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">
+                                article
+                                about setting up this ASP.NET application to support logging in via external services
+                            </a>.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
+                        <div>
+                            <p>
+                                @foreach (var provider in Model.ExternalLogins)
+                                {
+                                    <partial name="_ExternalButtonPartial" model="provider" />
+                                }
+                            </p>
+                        </div>
+                    </form>
+                }
+            }
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+```
+> Restart the application
+
+![Using scaffolding to change HTML!](/Images/49.png "Using scaffolding to change HTML")
+
+![Using scaffolding to change HTML!](/Images/50.png "Using scaffolding to change HTML")
+
+#### Using Scaffolding to Modify C# Code
+> Scaffolding doesn’t just override the view part of a Razor Page. It also creates a page model class containing the C# code that implements the features presented by the page.
+
+> Locate the <code>OnPostAsync</code> method in the <code>Login.cshtml.cs</code> file and change the final argument to the <code>PasswordSignInAsync</code> method.
+```C#
+ var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+```
+
+> By default, the Login page signs users into the application so that failed attempts do not lead to lockouts.
+
+> Alters this behavior so that failed attempts count toward a lockout, based on the configuration options we did before. 
+
+> Restart the application try to login with invalid password credentials more than 5 times as configure you will Lockout.
+
+> Further attempts to sign in, even with the correct password, will fail until the lockout expires.
+
+![Locking out an account!](/Images/51.png "Locking out an account")
+![Locking out an account!](/Images/52.png "Locking out an account")
+
+### Configuring the Account Management Pages
+> The Identity UI package uses a layout and partial view to present the navigation links for the selfmanagement features.
+
+![The account self-management features!](/Images/53.png "The account self-management features")
+
+> The Identity UI Razor Pages for account management are defined in the <code>Areas/Identity/Pages/Account/Manage</code> folder and have the Account.
+
+> Manage prefix when listed with the scaffolding tool.
+
+> Listing the Management Pages:
+```cli
+dotnet aspnet-codegenerator identity --listFiles | Where-Object {$_ -like '*Manage*'}
+```
+![Listing the Management Pages!](/Images/54.png "Listing the Management Pages")
+
+> In addition to the Razor Pages for specific features, the list contains two files that are useful in their own right: Account.Manage._Layout and Account.Manage._ManageNav.
+
+> The _Layout file is the Razor Layout used by the management Razor Pages. The _ManageNav file is a partial view that generates the links on the left of the layout.
+
+> Scaffolding the Management Layout Files:
+```cli
+dotnet aspnet-codegenerator identity --dbContext Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext --files "Account.Manage._Layout;Account.Manage._ManageNav"
+```
+
+#### Changing the Management Layout
+> The <code>_Layout.cshtml</code> file created by the previous command is used to present a consistent layout for all the account management Razor Pages.
+
+> Changing Text in the <code>_Layout.cshtml</code> File in the <code>Areas/Identity/Pages/Account/Manage</code> Folder:
+```Razor
+@{
+    if (ViewData.TryGetValue("ParentLayout", out var parentLayout))
+    {
+        Layout = (string)parentLayout;
+    }
+    else
+    {
+        Layout = "/Areas/Identity/Pages/_Layout.cshtml";
+    }
+}
+
+<h2>Account Self-Management</h2>
+
+<div>
+    <h2>Change your account settings</h2>
+    <hr />
+    <div class="row">
+        <div class="col-md-3">
+            <partial name="_ManageNav" />
+        </div>
+        <div class="col-md-9">
+            @RenderBody()
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @RenderSection("Scripts", required: false)
+}
+```
+
+> Restart the application
+
+![Modifying the self-management layout!](/Images/55.png "Modifying the self-management layout")
+
+#### Adding an Account Management Page
+#### Preparing the Navigation Link
+> To add a new page to the management interface, the first step is to modify the ManageNavPages class, which is used to keep track of the selected page so that the appropriate link is highlighted in the layout.
+
+> Preparing for a New Page in the <code>ManageNavPages.cs</code> File in the <code>Areas/Identity/Pages/Account/Manage</code> Folder:
+```C#
+ public static string StoreData => "StoreData";
+
+ public static string StoreDataNavClass(ViewContext viewContext)
+            => PageNavClass(viewContext, StoreData);
+```
+> The first part of the ManageNavPages class is a set of read-only string properties for each of the Razor Pages for which links are displayed.
+These properties make it easy to replace the default pages without breaking the way the links are displayed.
+
+> The next section is a set of methods used by the <code>_ManageNav</code> partial to set the classes for the link elements for each page.
+These methods used the private <code>PageNavClass</code> method to return the string <code>active</code> if the page they represent has been <code>selected</code>, which is determined by reading a view data property named <code>ActivePage</code>.
+
+#### Adding the Navigation Link
+> Adding a Link in the <code>_ManageNav.cshtml</code> File in the <code>Areas/Identity/Pages/Account/Manage</code>:
+```Razor
+@inject SignInManager<IdentityUser> SignInManager
+@{
+    var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+}
+<ul class="nav nav-pills flex-column">
+    <li class="nav-item"><a class="nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">Profile</a></li>
+    <li class="nav-item"><a class="nav-link @ManageNavPages.StoreDataNavClass(ViewContext)"id="personal-data" asp-page="./StoreData">Store Data</a></li>
+    <li class="nav-item"><a class="nav-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">Email</a></li>
+    <li class="nav-item"><a class="nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">Password</a></li>
+    @if (hasExternalLogins)
+    {
+        <li id="external-logins" class="nav-item"><a id="external-login" class="nav-link @ManageNavPages.ExternalLoginsNavClass(ViewContext)" asp-page="./ExternalLogins">External logins</a></li>
+    }
+    <li class="nav-item"><a class="nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">Two-factor authentication</a></li>
+    <li class="nav-item"><a class="nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">Personal data</a></li>
+</ul>
+```
+
+<mark>
+The <code>_ManageNav</code> partial uses the <code>GetExternalAuthenticationSchemesAsync</code> method defined by the
+<code> SignInManager< IdentityUser></code> class to determine whether the current user has logged in using an external authentication service.
+</mark>
+
+#### Defining the New Razor Page
+> Add a Razor Page named <code>StoreData.cshtml</code> to the <code>Areas/Identity/Pages/Account/Manage</code> folder.
+```Razor
+@page
+@inject UserManager<IdentityUser> UserManager
+@{
+    ViewData["ActivePage"] = ManageNavPages.StoreData;
+    IdentityUser user = await UserManager.GetUserAsync(User);
+}
+<h4>Store Data</h4>
+<table class="table table-sm table-bordered table-striped">
+    <thead>
+        <tr><th>Property</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Id</td>
+            <td>@user.Id</td>
+        </tr>
+        @foreach (var prop in typeof(IdentityUser).GetProperties())
+        {
+            if (prop.Name != "Id")
+            {
+                <tr>
+                    <td>@prop.Name</td>
+                    <td class="text-truncate" style="max-width:250px">
+                        @prop.GetValue(user)
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+```
+
+> Restart the application
+
+![Adding an account management page!](/Images/56.png "Adding an account management page")
+
+### Overriding the Default Layout in an Account Management Page
+> The Razor layout that is scaffolded for the account management pages allows Razor Pages to override the default layout by setting a view data property named <code>ParentLayout</code>.
+
+> Add a Razor Layout named <code>_InfoLayout.cshtml</code> to the <code>Pages/Shared</code> folder.
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link href="/lib/twitter-bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-info">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <partial name="_NavigationPartial" />
+    <div class="m-2">
+        @RenderBody()
+    </div>
+    @RenderSection("Scripts", false)
+</body>
+</html>
+```
+> Selecting a Top-Level View in the <code>StoreData.cshtml</code> File in the <code>Areas/Identity/Pages/Account/Manage</code> Folder.
+```Razor
+@page
+@inject UserManager<IdentityUser> UserManager
+@{
+    ViewData["ActivePage"] = ManageNavPages.StoreData;
+    ViewData["ParentLayout"] = "_InfoLayout";
+    IdentityUser user = await UserManager.GetUserAsync(User);
+}
+<h4>Store Data</h4>
+<table class="table table-sm table-bordered table-striped">
+    <thead>
+        <tr><th>Property</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Id</td>
+            <td>@user.Id</td>
+        </tr>
+        @foreach (var prop in typeof(IdentityUser).GetProperties())
+        {
+            if (prop.Name != "Id")
+            {
+                <tr>
+                    <td>@prop.Name</td>
+                    <td class="text-truncate" style="max-width:250px">
+                        @prop.GetValue(user)
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+```
+
+>Restart the application
+
+![Overriding the top-level header!](/Images/57.png "verriding the top-level header")
+
+### Tidying Up the QR Code Support
+> Scaffold the Razor Page that displays the QR code and modify it to remove the placeholder content and include the JavaScript files that are required.
+
+#### Scaffold File Shuffle
+> When you scaffold the account management files, the scaffolding tool tries to create the <code>ManageNavPages.cs</code> and <code>_ManageNav.cshtml</code> files, even though these files already exist.
+The result is an awkward file shuffle, which is most easily accomplished using two PowerShell command prompts.
+
+> Moving Files Before Scaffolding:
+```cli
+cd Areas\Identity\Pages\Account\Manage
+Move-Item -Path ManageNavPages.cs -Destination ManageNavPages.cs.safe
+Move-Item -Path _ManageNav.cshtml -Destination _ManageNav.cshtml.safe
+```
+
+> Scaffolding the Identity UI Page for Authenticator Setup:
+```cli
+cd ../../../../../
+dotnet aspnet-codegenerator identity --dbContext Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext --files Account.Manage.EnableAuthenticator --no-build --force
+```
+
+> Moving back Files After Scaffolding:
+```cli
+ cd Areas\Identity\Pages\Account\Manage\
+ Move-Item -Path ManageNavPages.cs.safe -Destination ManageNavPages.cs -Force
+ Move-Item -Path _ManageNav.cshtml.safe -Destination _ManageNav.cshtml -Force
+```
+> The result of the file shuffle is that the EnableAuthenticator Razor Page has been scaffolded, and the changes made to the ManageNavPages class and the _ManageNav partial view have been preserved.
+
+#### Modifying the Razor Page
+> Replace the contents of the <code>EnableAuthenticator.cshtml</code> file with below code to incorporate the QR code directly in the content produced by the page.
+
+> This is a simplification of the HTML in the original page, with additional script elements to generate the QR code.
+
+> Replacing the Contents of the <code>EnableAuthenticator.cshtml</code> File in the <code>Areas/Identity/Pages/Account/Manage</code> Folder:
+```Razor
+@page
+@model EnableAuthenticatorModel
+@{
+    ViewData["Title"] = "Configure authenticator app";
+    ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
+}
+<partial name="_StatusMessage" for="StatusMessage" />
+<h4>@ViewData["Title"]</h4>
+<div>
+    <p>To use an authenticator app go through the following steps:</p>
+    <ol class="list">
+        <li>
+            <p>
+                Download a two-factor authenticator app like
+                Microsoft Authenticator or Google Authenticator.
+            </p>
+        </li>
+        <li>
+            <p>
+                Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd>
+                into your two factor authenticator app. Spaces
+                and casing do not matter.
+            </p>
+            <div id="qrCode"></div>
+            <div id="qrCodeData" data-url="@Html.Raw(@Model.AuthenticatorUri)"></div>
+        </li>
+        <li>
+            <p>
+                Once you have scanned the QR code or input the key above,
+                your two factor authentication app will provide you
+                with a unique code. Enter the code in the confirmation box below.
+            </p>
+            <div class="row">
+                <div class="col-md-6">
+                    <form id="send-code" method="post">
+                        <div class="form-group">
+                            <label asp-for="Input.Code" class="control-label">
+                                Verification Code
+                            </label>
+                            <input asp-for="Input.Code" class="form-control"
+                                   autocomplete="off" />
+                            <span asp-validation-for="Input.Code"
+                                  class="text-danger"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Verify</button>
+                        <div asp-validation-summary="ModelOnly" class="text-danger">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </li>
+    </ol>
+</div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script type="text/javascript" src="/lib/qrcode/qrcode.min.js"></script>
+    <script type="text/javascript">
+        new QRCode(document.getElementById("qrCode"), {
+            text: document.getElementById("qrCodeData").getAttribute("data-url"),
+            width: 150, height: 150
+        });
+    </script>
+}
+```
+
+> Moving the JavaScript code into the Razor Page means that it can be removed from the shared layout.
+
+> Removing JavaScript Code from the <code>_CustomIdentityLayout.cshtml</code> File in the <code>Pages/Shared</code> Folder:
+```Razor
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link rel="stylesheet" href="/Identity/lib/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/Identity/css/site.css" />
+    <script src="/Identity/lib/jquery/dist/jquery.js"></script>
+    <script src="/Identity/lib/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script src="/Identity/js/site.js" asp-append-version="true"></script>
+    <@*script type="text/javascript" src="/lib/qrcode/qrcode.min.js"></script>*@
+    <link href="/lib/font-awesome/css/all.min.css" rel="stylesheet" />
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-secondary">
+        <a class="navbar-brand text-white">IdentityApp</a>
+        <div class="text-white"><partial name="_LoginPartial" /></div>
+    </nav>
+    <div class="m-2">
+        @RenderBody()
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+
+    @*<script type="text/javascript">
+        var element = document.getElementById("qrCode");
+        if (element !== null) {
+            new QRCode(element, {
+                text: document.getElementById("qrCodeData").getAttribute("data-url"),
+                width: 150, height: 150
+            });
+            element.previousElementSibling?.remove();
+        }
+    </script>*@
+
+</body>
+</html>
+```
+
+> Restart the application and login then go to <code>Manage Account</code> page then click <code>Two-factor authentication</code> Link.
+
+![Tidying up QR code generation!](/Images/57.png "Tidying up QR code generation")
+
+### Using Scaffolding to Disable Features
+> Scaffolding can also be used to disable features,that don’t suit your project.
+
+> Removing a Link in the <code>Login.cshtml</code> File in the <code>Areas/Identity/Pages/Account</code> Folder:
+```Razor
+@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Log in";
+}
+
+<h1>@ViewData["Title"]</h1>
+<div class="row">
+    <div class="col-md-4">
+        <section>
+            <form id="account" method="post">
+                <h2>Use a local account to log in.</h2>
+                <hr />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-floating">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+                    <label asp-for="Input.Email" class="form-label"></label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="form-floating">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                    <label asp-for="Input.Password" class="form-label"></label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div>
+                    <div class="checkbox">
+                        <label asp-for="Input.RememberMe" class="form-label">
+                            <input class="form-check-input" asp-for="Input.RememberMe" />
+                            @Html.DisplayNameFor(m => m.Input.RememberMe)
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <button id="login-submit" type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+                </div>
+                <div>
+                   @* <p>
+                        <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
+                    </p>*@
+                    <p>
+                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
+                    </p>
+                    <p>
+                        <a id="resend-confirmation" asp-page="./ResendEmailConfirmation">Resend email confirmation</a>
+                    </p>
+                </div>
+            </form>
+        </section>
+    </div>
+    <div class="col-md-6 col-md-offset-2">
+        <section>
+            <h3>Use another service to log in.</h3>
+            <hr />
+            @{
+                if ((Model.ExternalLogins?.Count ?? 0) == 0)
+                {
+                    <div>
+                        <p>
+                            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
+                            about setting up this ASP.NET application to support logging in via external services</a>.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form-horizontal">
+                        <div>
+                            <p>
+                                @foreach (var provider in Model.ExternalLogins)
+                                {
+                                    <partial name="_ExternalButtonPartial"model="provider" />
+                                }
+                            </p>
+                        </div>
+                    </form>
+                }
+            }
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+```
+
+> It isn’t enough to just disable a link because the user can navigate directly to the URL for the password recovery pages.
+
+> Scaffolding the Password Recovery Pages:
+```cli
+dotnet aspnet-codegenerator identity --dbContext Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityDbContext --files Account.ForgotPassword --force
+```
+
+> Redefining Methods in the <code>ForgotPassword.cshtml.cs</code> File in the <code>Areas/Identity/Pages/Account</code> Folder to redirect the browser to the <code>Login</code> page:
+```C#
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+#nullable disable
+
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.ComponentModel.DataAnnotations;
+
+namespace IdentityApp.Areas.Identity.Pages.Account
+{
+    public class ForgotPasswordModel : PageModel
+    {
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly IEmailSender _emailSender;
+
+        public ForgotPasswordModel(UserManager<IdentityUser> userManager, IEmailSender emailSender)
+        {
+            _userManager = userManager;
+            _emailSender = emailSender;
+        }
+
+        /// <summary>
+        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        [BindProperty]
+        public InputModel Input { get; set; }
+
+        /// <summary>
+        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public class InputModel
+        {
+            /// <summary>
+            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+            ///     directly from your code. This API may change or be removed in future releases.
+            /// </summary>
+            [Required]
+            [EmailAddress]
+            public string Email { get; set; }
+        }
+
+        //public async Task<IActionResult> OnPostAsync()
+        //{
+        //    if (ModelState.IsValid)
+        //    {
+        //        var user = await _userManager.FindByEmailAsync(Input.Email);
+        //        if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+        //        {
+        //            // Don't reveal that the user does not exist or is not confirmed
+        //            return RedirectToPage("./ForgotPasswordConfirmation");
+        //        }
+
+        //        // For more information on how to enable account confirmation and password reset please
+        //        // visit https://go.microsoft.com/fwlink/?LinkID=532713
+        //        var code = await _userManager.GeneratePasswordResetTokenAsync(user);
+        //        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        //        var callbackUrl = Url.Page(
+        //            "/Account/ResetPassword",
+        //            pageHandler: null,
+        //            values: new { area = "Identity", code },
+        //            protocol: Request.Scheme);
+
+        //        await _emailSender.SendEmailAsync(
+        //            Input.Email,
+        //            "Reset Password",
+        //            $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+
+        //        return RedirectToPage("./ForgotPasswordConfirmation");
+        //    }
+
+        //    return Page();
+        //}
+
+        public IActionResult OnGet() => RedirectToPage("./Login");
+        public IActionResult OnPost() => RedirectToPage("./Login");
+    }
+}
+
+```
+
+> Restart the application
+
+![Disabling a ForgotPassword feature!](/Images/58.png "Disabling a feature")
+
+## Recap what we did till now
+<code>I explained the different ways in which the Identity UI package can be adapted to suit the
+needs of a project. I demonstrated how the scaffolding process can be used to bring Razor Pages into the
+application where they take precedence over the default pages in the Identity UI package. This feature can
+be used to modify the features that the Identity UI package provides, create new features, or remove features
+entirely. Although the adaptations provide flexibility, there are limits to the customizations that can be
+made.</code>
+
+---
