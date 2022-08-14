@@ -3134,7 +3134,7 @@ namespace IdentityApp.Areas.Identity.Pages.Account
 
 > Restart the application
 
-![Disabling a ForgotPassword feature!](/Images/58.png "Disabling a feature")
+![Disabling a ForgotPassword feature!](/Images/58.png "Disabling a ForgotPassword feature")
 
 ## Recap what we did till now
 <code>I explained the different ways in which the Identity UI package can be adapted to suit the
@@ -3143,5 +3143,1026 @@ application where they take precedence over the default pages in the Identity UI
 be used to modify the features that the Identity UI package provides, create new features, or remove features
 entirely. Although the adaptations provide flexibility, there are limits to the customizations that can be
 made.</code>
+
+---
+
+## Using the Identity API
+> Use Identity API to create custom workflows.
+
+> Putting the Identity API in Context
+
+| Question | Answer |
+| :--- | :--- |
+| What is it? | The Identity API provides access to all of the Identity features. |
+| Why is it useful? | The API allows custom workflows to be created that perfectly match the requirements of a project, which may not be what the Identity UI package provides. |
+| How is it used? | Key classes are provided as services that are available through the standard ASP.NET Core dependency injection feature. |
+| Are there any pitfalls or limitations? | The API can be complex, and creating custom workflows requires a commitment of time and effort. It is also important to think through the workflows you create to ensure that you are creating a secure application. |
+| Are there any alternatives? | You can use and adapt the Identity UI package if your project fits into the model it is designed for. |
+
+### Creating the User and Administrator Dashboards
+> Create custom workflows for the operations commonly required by most applications, in versions that can be used by administrators and, where appropriate, by self-service users.
+
+> Create two <code>dashboard</code>-<code>style layouts</code>, one for <code>administrator functions</code> and one for <code>selfservice</code>.
+
+> you can use Razor Pages or MVC  but I will use Razor pages.
+
+> Create the <code>IdentityApp/Pages/Identity</code> folder and add to it a Razor Layout named <code>_Layout.cshtml</code>.
+```Razor
+@{
+    string theme = ViewData["theme"] as string ?? "primary";
+    bool showNav = ViewData["showNav"] as bool? ?? true;
+    string navPartial = ViewData["navPartial"] as string ?? "_Workflows";
+    string workflow = ViewData["workflow"] as string;
+    string banner = ViewData["banner"] as string ?? "User Dashboard";
+    bool showHeader = ViewData["showHeader"] as bool? ?? true;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Identity App</title>
+    <link href="/lib/twitter-bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+    @if (showHeader)
+    {
+        <nav class="navbar navbar-dark bg-@theme">
+            <a class="navbar-brand text-white">IdentityApp</a>
+            <div class="text-white"><partial name="_LoginPartial" /></div>
+        </nav>
+    }
+    <h4 class="bg-@theme text-center text-white p-2">@banner</h4>
+    <div class="my-2">
+        <div class="container-fluid">
+            <div class="row">
+                @if (showNav)
+                {
+                    <div class="col-auto">
+                        <partial name="@navPartial" model="@((workflow, theme))" />
+                    </div>
+                }
+                <div class="col">
+                    @RenderBody()
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+> Add a Razor View named <code>_Workflows.cshtml</code> to the <code>Pages/Identity</code> folder.
+> This partial view will display navigation buttons that will lead to different workflows.
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Overview")" asp-page="Index">
+    Overview
+</a>
+```
+
+> Create the <code>IdentityApp/Pages/Identity/Admin</code> folder and add to it a Razor Layout, called <_code>AdminLayout.cshtml</code>.
+```Razor
+@{
+    Layout = "../_Layout";
+    ViewData["theme"] = "success";
+    ViewData["banner"] = "Administration Dashboard";
+    ViewData["navPartial"] = "_AdminWorkflows";
+}
+@RenderBody()
+```
+> Add a Razor View named <code>_AdminWorkflows.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Dashboard")" asp-page="Dashboard">
+    Dashboard
+</a>
+```
+
+> Add a Razor View Start file named <code>_ViewStart.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@{
+    Layout = "_AdminLayout";
+}
+```
+
+#### Creating the Custom Base Classes
+> Applying the authorization policy is simpler when all the related Razor Pages share a common page model base class.
+
+> Add a class file named <code>UserPageModel.cs</code> to the <code>Pages/Identity</code> folder.
+```C#
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace IdentityApp.Pages.Identity;
+
+public class UserPageModel : PageModel
+{
+}
+```
+
+> To create the common base class for the administration features, add a class file named <code>AdminPageModel.cs</code> to the <code>Pages/Identity/Admin</code> folder.
+```C#
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class AdminPageModel : UserPageModel
+{
+}
+```
+<mark>Will back to this classes when appling the authorization policy that will restrict access to the custom Identity workflows.</mark>
+
+#### Creating the Overview and Dashboard Pages
+> Add a Razor Page named <code>Index.cshtml</code> to the <code>Pages/Identity</code> folder.
+```Razor
+@page
+@model IdentityApp.Pages.Identity.IndexModel
+@{
+    ViewBag.Workflow = "Overview";
+}
+<table class="table table-sm table-striped table-bordered">
+    <tbody>
+        <tr><th>Email</th><td>@Model.Email</td></tr>
+        <tr><th>Phone</th><td>@Model.Phone</td></tr>
+    </tbody>
+</table>
+```
+
+> Add a Razor Page named <code>Index.cshtml.cs</code> to the <code>Pages/Identity</code> folder.
+```C#
+namespace IdentityApp.Pages.Identity;
+
+public class IndexModel : UserPageModel
+{
+    public string Email { get; set; }
+    public string Phone { get; set; }
+}
+```
+
+> The page model class defines the properties required by its view.
+
+> Add a Razor Page named <code>Dashboard.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@page "/identity/admin"
+@model IdentityApp.Pages.Identity.Admin.DashboardModel
+@{
+    ViewBag.Workflow = "Dashboard";
+}
+<table class="table table-sm table-striped table-bordered">
+    <tbody>
+        <tr><th>Users in store:</th><td>@Model.UsersCount</td></tr>
+        <tr><th>Unconfirmed accounts:</th><td>@Model.UsersUnconfirmed</td></tr>
+        <tr><th>Locked out users:</th><td>@Model.UsersLockedout</td></tr>
+        <tr>
+            <th>Users with two-factor enabled:</th>
+            <td>@Model.UsersTwoFactor</td>
+        </tr>
+    </tbody>
+</table>
+```
+
+> Add <code>Dashboard.cshtml.cs</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```C#
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class DashboardModel : AdminPageModel
+{
+    public int UsersCount { get; set; } = 0;
+    public int UsersUnconfirmed { get; set; } = 0;
+    public int UsersLockedout { get; set; } = 0;
+    public int UsersTwoFactor { get; set; } = 0;
+}
+```
+
+> The final change is to update the link that allows users to manage their accounts.
+
+> Changing URLs in the <code>_LoginPartial.cshtml</code> File in the <code>Views/Shared</code> Folder.
+```Razor
+@inject SignInManager<IdentityUser> SignInManager
+
+<nav class="nav">
+    @if (User.Identity.IsAuthenticated)
+    {
+        <a asp-page="/Identity/Index" class="nav-link bg-secondary text-white">
+            @User.Identity.Name
+        </a>
+        <a asp-area="Identity" asp-page="/Account/Logout" class="nav-link bg-secondary text-white">
+            Logout
+        </a>
+    }
+    else
+    {
+        <a asp-area="Identity" asp-page="/Account/Login" class="nav-link bg-secondary text-white">
+            Login/Register
+        </a>
+    }
+</nav>
+```
+
+> Restart the application
+
+![Preparing the user and administration dashboards!](/Images/59.png "Preparing the user and administration dashboards")
+
+### Using the Identity API
+> Two of the most important parts of the Identity API are the <code>user manager</code> and the <code>user class</code>.
+
+> The <code>user manager</code> provides access to the data that Identity manages.
+
+> The <code>user class</code> describes the data that Identity manages for a single user account.
+
+> Start with a Razor Page that will create instances of the user class and ask the user manager to store them in the database.
+
+> Using the Identity API in the <code>Dashboard.cshtml.cs</code> File in the <code>Pages/Identity/Admin</code> Folder
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class DashboardModel : AdminPageModel
+{
+    public DashboardModel(UserManager<IdentityUser> userMgr) => UserManager = userMgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+
+    public int UsersCount { get; set; } = 0;
+    public int UsersUnconfirmed { get; set; } = 0;
+    public int UsersLockedout { get; set; } = 0;
+    public int UsersTwoFactor { get; set; } = 0;
+
+    private readonly string[] emails = { "test@example.com", "test1@example.com", "test2@example.com" };
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        foreach (string email in emails)
+        {
+            IdentityUser userObject = new()
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
+            await UserManager.CreateAsync(userObject);
+        }
+        return RedirectToPage();
+    }
+}
+```
+
+#### Processing Identity Results
+> Use of the <code>CreateAsync</code> method assumes that everything works as expected.
+> which is a level of optimism that is rarely warranted in software development.
+> The Method return <code>IdentityResult</code> objects that describe the outcome of operations.
+
+| Name | Description |
+| :--- | :--- |
+| Succeeded | This property returns true if the operation is successful and false otherwise. |
+| Errors | This property returns an <code>IEnumerable< IdentityError></code> object containing an <code>IdentityError</code> object for each error that has occurred. The <code>IdentityError</code> class defines Code and Description properties. |
+
+> When writing custom Identity workflows, a common requirement is to handle errors from the <code>IdentityResult</code> object by adding validation errors to the ASP.NET Core model state.
+
+> Add a class file named <code>IdentityExtensions.cs</code> to the <code>IdentityApp/Pages/Identity</code> folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+
+namespace IdentityApp.Pages.Identity;
+
+public static class IdentityExtensions
+{
+    public static bool Process(this IdentityResult result, ModelStateDictionary modelState)
+    {
+        foreach (IdentityError err in result.Errors ?? Enumerable.Empty<IdentityError>())
+        {
+            modelState.AddModelError(string.Empty, err.Description);
+        }
+        return result.Succeeded;
+    }
+}
+```
+
+> Use the new extension method to process the results from the CreateAsync method.
+
+> Handling Results in the <code>Dashboard.cshtml.cs</code> File in the <coed>Pages/Identity/Admin</code> Folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class DashboardModel : AdminPageModel
+{
+    public DashboardModel(UserManager<IdentityUser> userMgr) => UserManager = userMgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+
+    public int UsersCount { get; set; } = 0;
+    public int UsersUnconfirmed { get; set; } = 0;
+    public int UsersLockedout { get; set; } = 0;
+    public int UsersTwoFactor { get; set; } = 0;
+
+    private readonly string[] emails = { "test@example.com", "test1@example.com", "test2@example.com" };
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        foreach (string email in emails)
+        {
+            IdentityUser userObject = new()
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
+            IdentityResult result = await UserManager.CreateAsync(userObject);
+            result.Process(ModelState);
+        }
+        if (ModelState.IsValid)
+        {
+            return RedirectToPage();
+        }
+        return Page();
+    }
+}
+```
+
+> Adding HTML Elements to the <code>Dashboard.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```Razor
+@page "/identity/admin"
+@model IdentityApp.Pages.Identity.Admin.DashboardModel
+@{
+    ViewBag.Workflow = "Dashboard";
+}
+<div asp-validation-summary="All" class="text-danger m-2"></div>
+
+<table class="table table-sm table-striped table-bordered">
+    <tbody>
+        <tr><th>Users in store:</th><td>@Model.UsersCount</td></tr>
+        <tr><th>Unconfirmed accounts:</th><td>@Model.UsersUnconfirmed</td></tr>
+        <tr><th>Locked out users:</th><td>@Model.UsersLockedout</td></tr>
+        <tr>
+            <th>Users with two-factor enabled:</th>
+            <td>@Model.UsersTwoFactor</td>
+        </tr>
+    </tbody>
+</table>
+
+<form method="post">
+    <button class="btn btn-secondary" type="submit">Seed Database</button>
+</form>
+```
+
+> The new elements display validation errors and define a form that is submitted to seed the database.
+
+> Restart the application and test.
+
+![Testing the error handling code!](/Images/60.png "Testing the error handling code")
+
+> On the second attempt to seed the database, the calls to the CreateAsync method produce errors
+because the first seeding stored IdentityUser objects with the same UserName values. Identity requires
+unique usernames and produces error that are displayed using the ASP.NET Core model validation features.
+
+#### Querying the User Data
+> The <code>User manager</code> class defines a property named <code>Users</code>, 
+which can be used to enumerate the stored IdentityUser objects and which can be used with LINQ to perform queries.
+
+| Name | Description |
+| :--- | :--- |
+| Users | This property returns an <code>IQueryable< IdentityUser></code> object that can be used to enumerate the stored IdentityUser objects and can be used with LINQ to perform queries. |
+
+> Reading/Deleting Data in the <code>Dashboard.cshtml.cs</code> File in the <code>Identity/Pages/Admin</code> Folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class DashboardModel : AdminPageModel
+{
+    public DashboardModel(UserManager<IdentityUser> userMgr) => UserManager = userMgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+
+    public int UsersCount { get; set; } = 0;
+    public int UsersUnconfirmed { get; set; } = 0;
+    public int UsersLockedout { get; set; } = 0;
+    public int UsersTwoFactor { get; set; } = 0;
+
+    private readonly string[] emails = { "test@example.com", "test1@example.com", "test2@example.com" };
+
+    public void OnGet()
+    {
+        UsersCount = UserManager.Users.Count();
+    }
+    public async Task<IActionResult> OnPostAsync()
+    {
+        foreach (IdentityUser existingUser in UserManager.Users.ToList())
+        {
+            IdentityResult result = await UserManager.DeleteAsync(existingUser);
+            result.Process(ModelState);
+        }
+
+        foreach (string email in emails)
+        {
+            IdentityUser userObject = new()
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
+            IdentityResult result = await UserManager.CreateAsync(userObject);
+            result.Process(ModelState);
+        }
+        if (ModelState.IsValid)
+        {
+            return RedirectToPage();
+        }
+        return Page();
+    }
+}
+```
+
+> Restart the application
+
+![Reading (and deleting)!](/Images/61.png "Reading (and deleting)")
+
+#### Displaying a List of Users
+> Add a Razor Page named <code>SelectUser.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@page "{label?}/{callback?}"
+@model IdentityApp.Pages.Identity.Admin.SelectUserModel
+@{
+    ViewBag.Workflow = Model.Callback ?? Model.Label ?? "List";
+}
+<form method="post" class="my-2">
+    <div class="form-row">
+        <div class="col">
+            <div class="input-group">
+                <input asp-for="Filter" class="form-control" />
+            </div>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-secondary">Filter</button>
+        </div>
+    </div>
+</form>
+<table class="table table-sm table-striped table-bordered">
+    <thead>
+        <tr>
+            <th>User</th>
+            @if (!string.IsNullOrEmpty(Model.Callback))
+            {
+                <th />
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Users.Count() == 0)
+        {
+            <tr><td colspan="2">No matches</td></tr>
+        }
+        else
+        {
+            @foreach (IdentityUser user in Model.Users)
+            {
+                <tr>
+                    <td>@user.Email</td>
+                    @if (!string.IsNullOrEmpty(Model.Callback))
+                    {
+                        <td class="text-center">
+                            <a asp-page="@Model.Callback"
+                   asp-route-id="@user.Id"
+                   class="btn btn-sm btn-secondary">
+                                @Model.Callback
+                            </a>
+                        </td>
+                    }
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+@if (!string.IsNullOrEmpty(Model.Callback))
+{
+    <a asp-page="Dashboard" class="btn btn-secondary">Cancel</a>
+}
+```
+
+> The view part of the page displays a table with a text box that can be used to filter the user store by searching email addresses.
+
+> To define the page model class, Add <code>SelectUser.cshtml.cs</code> file <code>Pages/Identity/Admin</code> folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class SelectUserModel : AdminPageModel
+{
+    public SelectUserModel(UserManager<IdentityUser> mgr)
+    => UserManager = mgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+    public IEnumerable<IdentityUser> Users { get; set; }
+    [BindProperty(SupportsGet = true)]
+    public string Label { get; set; }
+    [BindProperty(SupportsGet = true)]
+    public string Callback { get; set; }
+    [BindProperty(SupportsGet = true)]
+    public string Filter { get; set; }
+    public void OnGet()
+    {
+        Users = UserManager.Users
+        .Where(u => Filter == null || u.Email.Contains(Filter))
+        .OrderBy(u => u.Email).ToList();
+    }
+    public IActionResult OnPost() => RedirectToPage(new { Filter, Callback });
+}
+```
+
+> Add Navigation in the <code>_AdminWorkflows.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Dashboard")" asp-page="Dashboard">
+    Dashboard
+</a>
+
+<a class="btn btn-success btn-block @getClass("List")" asp-page="SelectUser">
+    List Users
+</a>
+```
+
+> Reatart the application
+
+![Displaying a list of stored user accounts!](/Images/62.png "Displaying a list of stored user accounts")
+
+### Viewing and Editing User Details
+> <code>User</code> Class Properties and User Manager Class Methods.
+
+| Property Name | Description | User Manager Methods |
+| :--- | :--- | :--- |
+| Id | This property stores the unique ID for the user and cannot be changed. | GetUserIdAsync |
+| UserName | This property stores the user’s username. | GetUserNameAsync / SetUserNameAsync |
+| NormalizedUserName | This property stores a normalized representation of the username that is used when searching for users. | This property is updated automatically when the object is stored. |
+| Email | This property stores the user’s email address. | GetEmailAsync / SetEmailAsync |
+| NormalizedEmail | This property stores a normalized representation of the email address that is used when searching for users. | This property is updated automatically when the object is stored. |
+| EmailConfirmed | This property indicates whether the user’s email address has been confirmed. | IsEmailConfirmedAsync |
+| PasswordHash | This property stores a hashed representation of the user’s password. | HasPasswordAsync |
+| PhoneNumber | This property stores the user’s phone number. | GetPhoneNumberAsync / SetPhoneNumberAsync |
+| PhoneNumberConfirmed | This property indicates whether the user’s phone number has been confirmed. | IsPhoneNumberConfirmedAsync |
+| TwoFactorEnabled | This property indicates whether the user has configured two-factor access. | GetTwoFactorEnabledAsync / SetTwoFactorEnabledAsync |
+| LockoutEnabled | This property indicates whether the user account can be locked out following failed sign-ins. | GetLockoutEnabledAsync / SetLockoutEnabledAsync / IsLockedOutAsync |
+| AccessFailedCount | This property is used to keep track of the number of failed sign-ins. | This property is not used directly |
+| LockoutEnd | This property is used to store the time when the account will be permitted to sign in again. | This property is not used directly. |
+| SecurityStamp | This property stores a random value that is changed when the user’s credentials are updated. | This property is not used directly and is updated automatically. |
+| ConcurrencyStamp | This property stores a random value that is updated whenever the user data is stored. | This property is not used directly. |
+
+> Add a Razor Page named <code>View.cshtml</code> to the <code>Pages/Identity/Admin</code> folder .
+```Razor
+@page "{Id?}"
+@model IdentityApp.Pages.Identity.Admin.ViewModel
+@{
+    ViewBag.Workflow = "List";
+}
+<table class="table table-sm table-striped table-bordered">
+    <thead>
+        <tr><th>Property</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+        @foreach (string name in Model.PropertyNames)
+        {
+            <tr>
+                <td>@name</td>
+                <td class="text-truncate" style="max-width:250px">
+                    @Model.GetValue(name)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+<a asp-page="Edit" asp-route-id="@Model.Id" class="btn btn-secondary">
+    Edit
+</a>
+<a asp-page="View" asp-route-id="" class="btn btn-secondary">Back</a>
+```
+
+> The view part of the page displays a table containing the properties defined by the IdentityUser class and the values for the selected object. 
+
+>  Add  <code>View.cshtml.cs</code> file to the <code>Pages/Identity/Admin</code> folder .
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class ViewModel : AdminPageModel
+{
+    public ViewModel(UserManager<IdentityUser> mgr) => UserManager = mgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+    public IdentityUser IdentityUser { get; set; }
+    [BindProperty(SupportsGet = true)]
+    public string Id { get; set; }
+    public IEnumerable<string> PropertyNames => typeof(IdentityUser).GetProperties().Select(prop => prop.Name);
+    public string GetValue(string name) => typeof(IdentityUser).GetProperty(name).GetValue(IdentityUser)?.ToString();
+    public async Task<IActionResult> OnGetAsync()
+    {
+        if (string.IsNullOrEmpty(Id))
+        {
+            return RedirectToPage("Selectuser",
+            new { Label = "View User", Callback = "View" });
+        }
+        IdentityUser = await UserManager.FindByIdAsync(Id);
+        return Page();
+    }
+}
+```
+
+> To identify the user account to be edited, the GET handler page will perform a redirection to the SelectUser page if the request URL doesn’t include an Id value.
+
+> If there is an Id, then it is used to search the user store, using one of the methods that the UserManager<IdentityUser> class provides.
+
+> The <code>UserManager< T></code> Members for Searching the Store.
+
+| Name | Description |
+| :--- | :--- |
+| FindByIdAsync(id) | This method returns an IdentityUser object representing the user with the specified unique ID. |
+| FindByNameAsync(name) | This method returns an IdentityUser object representing the user with the specified name. |
+| FindByEmailAsync(email) | This method returns an IdentityUser object representing the user with the specified email address. |
+
+> These methods locate a single IdentityUser object using an ID, username, or email address or return null if there is no match.
+
+> Changing Navigation in the <code>_AdminWorkflows.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Dashboard")" asp-page="Dashboard">
+    Dashboard
+</a>
+
+<a class="btn btn-success btn-block @getClass("List")" asp-page="View" asp-route-id="">
+    List Users
+</a>
+```
+
+> Restart the application
+
+![Displaying IdentityUser properties!](/Images/63.png "Displaying IdentityUser properties")
+
+#### Editing User Details
+> Add a Razor Page named <code>Edit.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@page "{Id?}"
+@model IdentityApp.Pages.Identity.Admin.EditModel
+@{
+    ViewBag.Workflow = "Edit";
+}
+<div asp-validation-summary="All" class="text-danger m-2"></div>
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group">
+        <label>Username</label>
+        <input class="form-control" asp-for="IdentityUser.UserName" />
+    </div>
+    <div class="form-group">
+        <label>Normalized Username</label>
+        <input class="form-control" asp-for="IdentityUser.NormalizedUserName" readonly />
+    </div>
+    <div class="form-group">
+        <label>Email</label>
+        <input class="form-control" asp-for="IdentityUser.Email" />
+    </div>
+    <div class="form-group">
+        <label>Normalized Email</label>
+        <input class="form-control"
+               asp-for="IdentityUser.NormalizedEmail" readonly />
+    </div>
+    <div class="form-group">
+        <label>Phone Number</label>
+        <input class="form-control" asp-for="IdentityUser.PhoneNumber" />
+    </div>
+    <div>
+        <button type="submit" class="btn btn-success">Save</button>
+        <a asp-page="Dashboard" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+```
+
+> Add a <code>Edit.cshtml.cs</code> file to the <code>Pages/Identity/Admin</code> folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class EditBindingTarget
+{
+    [Required]
+    public string Username { get; set; }
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; }
+    [Phone]
+    public string PhoneNumber { get; set; }
+}
+public class EditModel : AdminPageModel
+{
+    public EditModel(UserManager<IdentityUser> mgr) => UserManager = mgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+
+    public IdentityUser IdentityUser { get; set; }
+    [BindProperty(SupportsGet = true)]
+    public string Id { get; set; }
+    public async Task<IActionResult> OnGetAsync()
+    {
+        if (string.IsNullOrEmpty(Id))
+        {
+            return RedirectToPage("Selectuser",
+            new { Label = "Edit User", Callback = "Edit" });
+        }
+        IdentityUser = await UserManager.FindByIdAsync(Id);
+        return Page();
+    }
+    public async Task<IActionResult> OnPostAsync([FromForm(Name = "IdentityUser")] EditBindingTarget userData)
+    {
+        if (!string.IsNullOrEmpty(Id) && ModelState.IsValid)
+        {
+            IdentityUser user = await UserManager.FindByIdAsync(Id);
+            if (user != null)
+            {
+                user.UserName = userData.Username;
+                user.Email = userData.Email;
+                user.EmailConfirmed = true;
+                if (!string.IsNullOrEmpty(userData.PhoneNumber))
+                {
+                    user.PhoneNumber = userData.PhoneNumber;
+                }
+            }
+            IdentityResult result = await UserManager.UpdateAsync(user);
+            if (result.Process(ModelState))
+            {
+                return RedirectToPage();
+            }
+        }
+        IdentityUser = await UserManager.FindByIdAsync(Id);
+        return Page();
+    }
+}
+```
+
+> When the user submits the form, the ASP.NET Core model binding feature assigns the form values to the properties to an instance of the <code>EditBindingTarget</code> class.
+
+> Adding Navigation in the <code>_AdminWorkflows.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Dashboard")" asp-page="Dashboard">
+    Dashboard
+</a>
+
+<a class="btn btn-success btn-block @getClass("List")" asp-page="View" asp-route-id="">
+    List Users
+</a>
+
+<a class="btn btn-success btn-block @getClass("Edit")" asp-page="Edit" asp-route-id="">
+Edit Users
+</a>
+```
+
+> Restart the application
+
+![Editing User Details!](/Images/64.png "Editing User Details")
+
+### Fixing the Username and Email Problem
+> Identity supports different values for a user’s username and email address, which are stored using the
+IdentityUser class UserName and Email properties. This means a user can sign in with a username that is
+not their email address.
+
+> Making a Field Read-Only in the <code>Edit.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```Razor
+@page "{Id?}"
+@model IdentityApp.Pages.Identity.Admin.EditModel
+@{
+    ViewBag.Workflow = "Edit";
+}
+<div asp-validation-summary="All" class="text-danger m-2"></div>
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group">
+        <label>Username</label>
+        <input class="form-control" asp-for="IdentityUser.UserName" readonly/>
+    </div>
+    <div class="form-group">
+        <label>Normalized Username</label>
+        <input class="form-control" asp-for="IdentityUser.NormalizedUserName" readonly />
+    </div>
+    <div class="form-group">
+        <label>Email</label>
+        <input class="form-control" asp-for="IdentityUser.Email" />
+    </div>
+    <div class="form-group">
+        <label>Normalized Email</label>
+        <input class="form-control"
+               asp-for="IdentityUser.NormalizedEmail" readonly />
+    </div>
+    <div class="form-group">
+        <label>Phone Number</label>
+        <input class="form-control" asp-for="IdentityUser.PhoneNumber" />
+    </div>
+    <div>
+        <button type="submit" class="btn btn-success">Save</button>
+        <a asp-page="Dashboard" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+```
+
+> Setting Properties in the <code>Edit.cshtml.cs</code> File in the <code>Pages/Identity/Admin</code> Folder.
+```C#
+public async Task<IActionResult> OnPostAsync([FromForm(Name = "IdentityUser")] EditBindingTarget userData)
+    {
+        if (!string.IsNullOrEmpty(Id) && ModelState.IsValid)
+        {
+            IdentityUser user = await UserManager.FindByIdAsync(Id);
+            if (user != null)
+            {
+                //user.UserName = userData.Username;
+                user.UserName = userData.Email;
+                user.Email = userData.Email;
+                user.EmailConfirmed = true;
+                if (!string.IsNullOrEmpty(userData.PhoneNumber))
+                {
+                    user.PhoneNumber = userData.PhoneNumber;
+                }
+            }
+            IdentityResult result = await UserManager.UpdateAsync(user);
+            if (result.Process(ModelState))
+            {
+                return RedirectToPage();
+            }
+        }
+        IdentityUser = await UserManager.FindByIdAsync(Id);
+        return Page();
+    }
+```
+
+> Restart the application
+
+![Updating the username and email address consistently!](/Images/65.png "Updating the username and email address consistently")
+
+### Understanding the User Store
+> The <code>UserManager< IdentityUser></code> class doesn’t store data itself.
+
+> It depends on dependency injection to obtain an <code>implementation</code> of the <code>IUserStore< IdentityUser></code> interface.
+
+> The interface defines the operations required to store and retrieve IdentityUser data, and there are additional interfaces that can be implemented by user stores that support additional features.
+
+> The <code>AddEntityFrameworkStores</code> method sets up the user store, and the generic type argument specifies the Entity Framework Core context that will be used to access the database.
+
+> Separating the <code>user manager</code> from the <code>user store</code> means it is relatively simple to change the user store if the needs of the project change.
+
+> As long as the new user store can work with your chosen user class, there should be little difficulty in moving from one user store to another.
+
+> Not all user stores support all of the Identity features, which is indicated by the set of optional interfaces that the user store has implemented.
+
+> It is important to check that all the features you require are supported when you start a new project and when you change user store.
+
+> You don’t have to inspect the user store directly because the user manager class defines a set of properties you can read to check feature support.
+
+> The User Manager Properties for Checking User Store Capabilities:
+
+| Name | Description |
+| :--- | :--- |
+| SupportsQueryableUsers | This property returns true if the user store supports queries via LINQ. The query feature is demonstrated in the querying the user data section. |
+| SupportsUserEmail | This property returns true if the user store supports email addresses, allows searching the store using an email address, and can keep track of whether an email address has been confirmed. |
+| SupportsUserPhoneNumber | This property returns true if the user store supports phone numbers and keeps track of whether a phone number has been confirmed.  |
+| SupportsUserPassword | This property returns true if the user store supports hashed passwords for a user.  |
+| SupportsUserRole | This property returns true if the user store supports roles. |
+| SupportsUserClaim | This property returns true if the user store supports claims. |
+| SupportsUserLockout | This property returns true if the user store supports user lockouts. |
+| SupportsUserTwoFactor | This property returns true if the user store can keep track of whether a user requires two-factor authentication.  |
+| SupportsUserTwoFactorRecoveryCodes | This property returns true if the store can manage recovery codes, which allow two-factor authentication to be bypassed. |
+| SupportsUserLogin | This property returns true if the store can manage details of signing in with external authentication services. |
+| SupportsUserAuthenticatorKey | This property returns true if the store can manage keys for signing in with an authenticator app. |
+| SupportsUserAuthenticationTokens | This property returns true if the store can manage tokens used to access APIs provided by third parties. |
+| SupportsUserSecurityStamp | This property returns true if the store can manage security stamps, which are random values that change when the user’s credentials are altered. Security stamps are used indirectly by many Identity workflows. |
+
+> Add a Razor Page named <code>Features.cshtml</code> to the <code>Pages/Identity/Admin</code> folder.
+```Razor
+@page
+@model IdentityApp.Pages.Identity.Admin.FeaturesModel
+@inject UserManager<IdentityUser> UserManager
+@{
+    ViewBag.Workflow = "Features";
+}
+<table class="table table-sm table-striped table-bordered">
+    <thead><tr><th>Property</th><th>Supported</th></tr></thead>
+    <tbody>
+        @foreach ((string prop, string val) in Model.Features)
+        {
+            <tr>
+                <td>@prop</td>
+                <td class="@(val == "True" ? "bg-success" : "bg-danger") text-white">
+                    @val
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+```
+
+> The view section of the page displays a table that is populated with a set of tuples that contain each feature property and its value.
+
+> Add a <code>Features.cshtml.cs</code> file to the <code>Pages/Identity/Admin</code> folder.
+```C#
+using Microsoft.AspNetCore.Identity;
+
+namespace IdentityApp.Pages.Identity.Admin;
+
+public class FeaturesModel : AdminPageModel
+{
+    public FeaturesModel(UserManager<IdentityUser> mgr) => UserManager = mgr;
+    public UserManager<IdentityUser> UserManager { get; set; }
+    public IEnumerable<(string, string)> Features { get; set; }
+    public void OnGet()
+    {
+        Features = UserManager.GetType().GetProperties()
+        .Where(prop => prop.Name.StartsWith("Supports"))
+        .OrderBy(p => p.Name)
+        .Select(prop => (prop.Name, prop.GetValue(UserManager)
+        .ToString()));
+    }
+}
+
+```
+
+> Adding a Button in the <code>_AdminWorkflows.cshtml</code> File in the <code>Pages/Identity/Admin</code> Folder
+```Razor
+@model (string workflow, string theme)
+@{
+    Func<string, string> getClass = (string feature) =>
+    feature != null && feature.Equals(Model.workflow) ? "active" : "";
+}
+<a class="btn btn-@Model.theme btn-block @getClass("Dashboard")" asp-page="Dashboard">
+    Dashboard
+</a>
+
+<a class="btn btn-@Model.theme btn-block @getClass("Features")" asp-page="Features">
+    Store Features
+</a>
+
+<a class="btn btn-success btn-block @getClass("List")" asp-page="View" asp-route-id="">
+    List Users
+</a>
+
+<a class="btn btn-success btn-block @getClass("Edit")" asp-page="Edit" asp-route-id="">
+    Edit Users
+</a>
+```
+
+> Restart the application
+
+![Checking the features supported by the user store!](/Images/66.png "Checking the features supported by the user store")
+
+#### Changing the Identity Configuration
+> You will notice that the user store doesn’t support roles. 
+This is because the Identity UI package doesn’t support roles, and the method used to set up Identity and Identity UI doesn’t include the configuration information for role support.
+
+> Changing the Identity Configuration in the <code>Program.cs</code> File in the <code>IdentityApp</code> Folder.
+```C#
+builder.Services.AddIdentity<IdentityUser,IdentityRole>(opts =>
+{
+    opts.Password.RequiredLength = 8;
+    opts.Password.RequireDigit = false;
+    opts.Password.RequireLowercase = false;
+    opts.Password.RequireUppercase = false;
+    opts.Password.RequireNonAlphanumeric = false;
+
+    opts.SignIn.RequireConfirmedAccount = true;
+})
+.AddEntityFrameworkStores<IdentityDbContext>();
+```
+> The user store set up by the AddEntityFrameworkStores method does support roles but only when a
+role class has been selected, which isn’t possible with the AddDefaultIdentity method used previously.
+
+> Replace the <code>AddDefaultIdentity</code> method the <code>AddIdentity</code> method.
+
+> The <code>AddIdentity</code> method defines an additional generic type parameter that is used to specify the role class, which enables role support in the user store.
+
+> Restart the application
+
+![Enabling user store features!](/Images/67.png "Enabling user store features")
+
+## Recap what we did till now
+<code>Describe the Identity API and used its basic features.</code>
 
 ---
